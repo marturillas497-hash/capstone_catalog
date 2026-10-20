@@ -5,7 +5,7 @@ import { isValidEmbedding } from "@/lib/embedding";
 import { getPool } from "@/lib/db";
 import { getRiskLevel } from "@/lib/risk";
 import { buildFallbackAdvisoryText } from "@/lib/advisory";
-import { generateText } from "@/lib/claude";
+import { generateText } from "@/lib/ai";
 
 // The AI call budget (34s) plus the DB work must fit inside this and the 45s client timeout.
 export const maxDuration = 60;

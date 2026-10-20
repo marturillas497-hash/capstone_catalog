@@ -19,7 +19,7 @@ const DAILY_LIMIT = 5;
 const STAGES = [
   { key: "embedding", label: "Generating embedding…", description: "Converting your title and abstract into a semantic fingerprint." },
   { key: "matching", label: "Comparing against the capstone library…", description: "Checking your proposed topic against existing BSIS studies." },
-  { key: "advisory", label: "Generating AI advisory…", description: "Claude is drafting structured feedback based on your closest matches." },
+  { key: "advisory", label: "Generating AI advisory…", description: "The AI is drafting structured feedback based on your closest matches." },
 ];
 
 const MATCHING_STAGE_DELAY_MS = 1600;

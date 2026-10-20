@@ -18,7 +18,7 @@ const STATUS_MESSAGES = {
 
 const FEATURES = [
   { icon: ScanLine, label: "Semantic Similarity Detection" },
-  { icon: Lightbulb, label: "AI Advisory by Claude" },
+  { icon: Lightbulb, label: "AI Advisory" },
   { icon: BookOpen, label: "BSIS Abstract Catalog" },
 ];
 
