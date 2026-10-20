@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #F8FAFC;
+  color: #0F172A;
+  font-family: "DM Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-weight: 600;
+}
+
+@layer base {
+  /*
+    Page transition: every page's content area fades in and rises slightly on
+    navigation. Applied to <main> only, so the sidebar and top bar stay still.
+    Uses the "page-ease-in" animation from tailwind.config.js. That animation
+    deliberately has no "forwards" fill: a leftover transform on <main> would
+    become the containing block for any position:fixed descendant.
+  */
+  main {
+    @apply animate-page-ease-in;
+  }
+}
+
+@layer utilities {
+  .neo-transition {
+    transition: box-shadow 300ms ease-in-out, transform 300ms ease-in-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main,
+  .animate-page-ease-in,
+  .animate-fade-in,
+  .animate-modal-in {
+    animation: none;
+  }
+}
