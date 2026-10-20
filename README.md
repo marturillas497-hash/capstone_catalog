@@ -1,10 +1,10 @@
-# Capstone Library
+# Capstone Catalog
 
 **Web-Based Capstone Studies with the Integration of Similarity Detection and AI Recommendation**
 
 A capstone system built for the Bachelor of Science in Information Systems (BSIS) program at **Makilala Institute of Science and Technology (MIST)**. It gives students a searchable digital catalog of completed capstone studies and a semantic similarity checker, so a proposed topic can be checked for conceptual overlap against the institution's own capstone library before formal advising — without a trip to the library.
 
-`v1.0.0` · Internal/academic use · Not affiliated with or licensed for use outside MIST's BSIS program.
+`v0.1.0` · Derived from Capstone Library v1.0.0 (the MIST BSIS capstone project) and developed separately, with its own database and API keys.
 
 ---
 
@@ -70,8 +70,8 @@ This is a similarity-detection and recommendation tool, **not** a plagiarism che
 ### Install
 
 ```bash
-git clone https://github.com/marturillas497-hash/capstone-library.git
-cd capstone-library
+git clone https://github.com/marturillas497-hash/capstone_catalog.git
+cd capstone_catalog
 npm install
 ```
 
@@ -105,7 +105,7 @@ Visit [http://localhost:3000](http://localhost:3000).
 
 ## Database
 
-The schema, RLS policies, database functions (`match_abstracts`, `get_my_role`), and indexes are documented in full in this project's internal PRD, kept separately from this repo. At a high level:
+The schema, RLS policies, database functions (`match_abstracts`, `get_my_role`), and indexes are defined in `supabase/migrations/`, applied in filename order. At a high level:
 
 - `profiles` (parent identity table) → `student_metadata` (child table for student-only fields)
 - `abstracts` — the capstone library, with a `vector(384)` embedding column
@@ -125,7 +125,7 @@ Deployed on Vercel. The `dev`/`build` scripts intentionally omit any bundler fla
 ## Project structure
 
 ```
-capstone-library/
+capstone_catalog/
 ├── app/
 │   ├── admin/         # Admin portal: dashboard, archive, approvals, analytics, whitelist, users
 │   ├── adviser/       # Adviser portal: assigned students, own reports, scan history
