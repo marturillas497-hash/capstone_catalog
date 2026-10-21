@@ -19,6 +19,7 @@ import {
   BarChart3,
   ShieldCheck,
   UserCog,
+  UserPlus,
 } from "lucide-react";
 import ChangePasswordModal from "./ChangePasswordModal";
 
@@ -55,6 +56,7 @@ const NAV_LINKS = {
     { href: "/admin/analytics", label: "Analytics", icon: BarChart3, group: "Governance" },
     { href: "/admin/whitelist", label: "Whitelist", icon: ShieldCheck, group: "Governance", chip: "gold" },
     { href: "/admin/users", label: "User Management", icon: UserCog, group: "Governance" },
+    { href: "/admin/staff", label: "Staff", icon: UserPlus, group: "Governance" },
   ],
 };
 

@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { KeyRound, Copy, Check, AlertTriangle } from "lucide-react";
 
-export default function ResetPasswordModal({ open, onClose, password, fullName }) {
+export default function ResetPasswordModal({
+  open,
+  onClose,
+  password,
+  fullName,
+  title = "Password reset",
+  label = "New password for",
+}) {
   const [copied, setCopied] = useState(false);
 
   if (!open) return null;
@@ -27,11 +34,11 @@ export default function ResetPasswordModal({ open, onClose, password, fullName }
           <div className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-navy">
             <KeyRound className="w-5 h-5 text-white" strokeWidth={1.75} />
           </div>
-          <h2 className="font-display text-lg text-navy">Password reset</h2>
+          <h2 className="font-display text-lg text-navy">{title}</h2>
         </div>
 
         <p className="text-sm text-slate-500 mb-4">
-          New password for <span className="font-medium text-foreground">{fullName}</span>. Shown once, deliver it through a trusted channel.
+          {label} <span className="font-medium text-foreground">{fullName}</span>. Shown once, deliver it through a trusted channel.
         </p>
 
         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-4">

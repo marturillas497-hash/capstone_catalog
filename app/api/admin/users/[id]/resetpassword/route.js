@@ -50,11 +50,11 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 });
     }
 
-    // Only student and capstone_adviser accounts are managed from this
-    // page. The admin account has its own Change Password flow (F15)
+    // Only student, capstone_adviser and staff accounts are managed from
+    // here. The admin account has its own Change Password flow (F15)
     // and should never be reset through this admin-assisted tool.
-    if (!["student", "capstone_adviser"].includes(target.role)) {
-      return NextResponse.json({ error: "Account is not a student or adviser" }, { status: 400 });
+    if (!["student", "capstone_adviser", "staff"].includes(target.role)) {
+      return NextResponse.json({ error: "Account is not a student, adviser or staff account" }, { status: 400 });
     }
 
     const newPassword = generateReadablePassword();

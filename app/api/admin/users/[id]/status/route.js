@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 // PATCH /api/admin/users/[id]/status
 // Flips profiles.status between active and suspended (F16.5).
-// Shared by both the Students and Advisers tabs of /admin/users, since
+// Shared by the Students and Advisers tabs of /admin/users and by /admin/staff, since
 // the operation is identical regardless of role, both values are already
 // legal under the existing CHECK constraint, no schema change.
 //
@@ -53,10 +53,10 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 });
     }
 
-    // Only student and capstone_adviser accounts are managed from this page.
+    // Only student, capstone_adviser and staff accounts are managed from here.
     // The admin account itself is never a valid target here.
-    if (!["student", "capstone_adviser"].includes(target.role)) {
-      return NextResponse.json({ error: "Account is not a student or adviser" }, { status: 400 });
+    if (!["student", "capstone_adviser", "staff"].includes(target.role)) {
+      return NextResponse.json({ error: "Account is not a student, adviser or staff account" }, { status: 400 });
     }
 
     // Guards against acting on a pending or rejected adviser through this
