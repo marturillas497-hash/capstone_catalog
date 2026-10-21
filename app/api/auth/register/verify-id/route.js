@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { STUDENT_ID_PATTERN } from "@/lib/constants";
 
 // Public, unauthenticated route, called from the register page before an
@@ -37,14 +37,12 @@ export async function POST(request) {
     return NextResponse.json({ error: "A valid student ID is required." }, { status: 400 });
   }
 
-  // One round trip instead of two sequential PostgREST calls.
-  const { rows } = await getPool().query(
-    `SELECT w.id_number, w.full_name, (sm.profile_id IS NOT NULL) AS already_registered
-       FROM student_whitelist w
-       LEFT JOIN student_metadata sm ON sm.id_number = w.id_number
-      WHERE w.id_number = $1`,
-    [studentId]
-  );
+  // One round trip: the verify_student_id function joins the whitelist to student_metadata.
+  const { data: rows, error } = await createAdminClient().rpc("verify_student_id", { p_id: studentId });
+  if (error) {
+    console.error("[POST /api/auth/register/verify-id]", error);
+    return NextResponse.json({ error: "Could not verify the student ID." }, { status: 500 });
+  }
 
   if (rows.length === 0) {
     return NextResponse.json({ found: false });

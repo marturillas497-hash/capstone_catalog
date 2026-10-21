@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { requireActiveUser } from "@/lib/apiAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidEmbedding } from "@/lib/embedding";
-import { getPool } from "@/lib/db";
 import { getRiskLevel } from "@/lib/risk";
 import { buildFallbackAdvisoryText } from "@/lib/advisory";
 import { generateText } from "@/lib/ai";
@@ -15,27 +14,11 @@ const MAX_TITLE_LENGTH = 300;
 const MAX_DESCRIPTION_LENGTH = 5000;
 
 async function getRemainingScans(userId, role) {
-  const pool = getPool();
-
-  let result;
-  if (role === "student") {
-    result = await pool.query(
-      `SELECT COUNT(*) FROM similarity_reports
-       WHERE student_id = $1
-         AND created_at >= date_trunc('day', now() AT TIME ZONE 'Asia/Manila') AT TIME ZONE 'Asia/Manila'`,
-      [userId]
-    );
-  } else {
-    result = await pool.query(
-      `SELECT COUNT(*) FROM similarity_reports
-       WHERE adviser_id = $1
-         AND student_id IS NULL
-         AND created_at >= date_trunc('day', now() AT TIME ZONE 'Asia/Manila') AT TIME ZONE 'Asia/Manila'`,
-      [userId]
-    );
-  }
-
-  const used = parseInt(result.rows[0].count, 10);
+  const { data: used, error } = await createAdminClient().rpc("scans_used_today", {
+    p_user: userId,
+    p_is_student: role === "student",
+  });
+  if (error) throw error;
   return DAILY_LIMIT - used;
 }
 
@@ -200,15 +183,14 @@ export async function POST(request) {
       );
     }
 
-    const pool = getPool();
-    const vectorStr = `[${embedding.join(",")}]`;
+    const { data: matchRows, error: matchError } = await createAdminClient().rpc("match_abstracts", {
+      query_embedding: embedding,
+      match_threshold: 0,
+      match_count: 5,
+    });
+    if (matchError) throw matchError;
 
-    const matchResult = await pool.query(
-      `SELECT * FROM match_abstracts($1::vector, $2, $3)`,
-      [vectorStr, 0, 5]
-    );
-
-    const matches = matchResult.rows;
+    const matches = matchRows ?? [];
     const topScore = matches.length > 0 ? matches[0].similarity : 0;
     const riskLevel = getRiskLevel(topScore);
 

@@ -1,27 +1,19 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getPool } from "@/lib/db";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // GET /api/admin/users/students
 // Paginated, searched, sorted, and filtered list of registered students
 // for the Students tab of /admin/users (F16.1, F16.2, F16.3).
 //
-// Uses the direct pg connection rather than the Supabase client's embedded
-// resource syntax. student_metadata has two foreign keys to profiles
-// (profile_id and adviser_id, see PRD Section 9.2 and 13.2), and this query
-// needs to join both at once while also filtering and sorting on columns
-// that live on the joined profiles row, not on student_metadata itself.
-// Raw parameterized SQL avoids the embedded-filter and ambiguous-FK
-// failure modes already documented twice in this project for exactly
-// this kind of double join, and also avoids ever building a filter
-// string from user input, since every value here is a bound parameter.
+// Runs the admin_list_students Postgres function with the service role. The
+// double join to profiles, the filters, and the sorting all live in SQL, and
+// every value is a bound argument, so no filter string is ever built from
+// user input.
 
 const PAGE_SIZE = 25;
 
-const SORT_MAP = {
-  name: "p.full_name ASC",
-  date: "sm.created_at DESC",
-};
+const SORT_KEYS = ["name", "date"];
 
 export async function GET(request) {
   try {
@@ -47,7 +39,7 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get("q") || "").trim();
-    const sort = SORT_MAP[searchParams.get("sort")] ? searchParams.get("sort") : "date";
+    const sort = SORT_KEYS.includes(searchParams.get("sort")) ? searchParams.get("sort") : "date";
     const status = searchParams.get("status") || "";
     const adviserId = searchParams.get("adviserId") || "";
     const yearLevel = searchParams.get("yearLevel") || "";
@@ -55,62 +47,20 @@ export async function GET(request) {
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
     const offset = (page - 1) * PAGE_SIZE;
 
-    const conditions = [];
-    const params = [];
+    const { data, error } = await createAdminClient().rpc("admin_list_students", {
+      p_q: q || null,
+      p_status: status || null,
+      p_adviser: adviserId || null,
+      p_year: yearLevel || null,
+      p_section: section || null,
+      p_sort: sort,
+      p_limit: PAGE_SIZE,
+      p_offset: offset,
+    });
+    if (error) throw error;
 
-    if (q) {
-      params.push(`%${q}%`);
-      conditions.push(`p.full_name ILIKE $${params.length}`);
-    }
-    if (status) {
-      params.push(status);
-      conditions.push(`p.status = $${params.length}`);
-    }
-    if (adviserId) {
-      params.push(adviserId);
-      conditions.push(`sm.adviser_id = $${params.length}`);
-    }
-    if (yearLevel) {
-      params.push(yearLevel);
-      conditions.push(`sm.year_level = $${params.length}`);
-    }
-    if (section) {
-      params.push(section);
-      conditions.push(`sm.section = $${params.length}`);
-    }
-
-    const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-
-    params.push(PAGE_SIZE);
-    const limitParam = params.length;
-    params.push(offset);
-    const offsetParam = params.length;
-
-    const sql = `
-      SELECT
-        sm.profile_id,
-        sm.id_number,
-        sm.year_level,
-        sm.section,
-        sm.adviser_id,
-        sm.created_at,
-        p.full_name,
-        p.status,
-        adv.full_name AS adviser_name,
-        count(*) OVER() AS full_count
-      FROM student_metadata sm
-      JOIN profiles p ON p.id = sm.profile_id
-      LEFT JOIN profiles adv ON adv.id = sm.adviser_id
-      ${whereClause}
-      ORDER BY ${SORT_MAP[sort]}
-      LIMIT $${limitParam} OFFSET $${offsetParam}
-    `;
-
-    const pool = getPool();
-    const result = await pool.query(sql, params);
-
-    const total = result.rows.length > 0 ? parseInt(result.rows[0].full_count, 10) : 0;
-    const rows = result.rows.map(({ full_count, ...row }) => row);
+    const total = data.length > 0 ? parseInt(data[0].full_count, 10) : 0;
+    const rows = data.map(({ full_count, ...row }) => row);
 
     return NextResponse.json({
       rows,

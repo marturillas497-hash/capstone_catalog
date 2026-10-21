@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireActiveUser } from "@/lib/apiAuth";
 import { isValidEmbedding } from "@/lib/embedding";
-import { getPool } from "@/lib/db";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // POST /api/library/search
 // Semantic library search via pgvector match_abstracts.
 // Called when the user submits a 3+ word query on the /library page.
 // The embedding is generated client-side and sent in the request body.
-// Uses a direct pg connection, PostgREST cannot pass JS arrays as vector type.
+// Calls match_abstracts with the service role. That function is not executable by anon or authenticated.
 
 // Use a threshold of 0.3 for library search to filter out low-relevance noise.
 // This is different from /api/analyze which uses 0 to capture all matches
@@ -40,15 +40,14 @@ export async function POST(request) {
     : DEFAULT_MATCH_COUNT;
 
   try {
-    const pool = getPool();
-    const vectorStr = `[${embedding.join(",")}]`;
+    const { data, error } = await createAdminClient().rpc("match_abstracts", {
+      query_embedding: embedding,
+      match_threshold: LIBRARY_SEARCH_THRESHOLD,
+      match_count: matchCount,
+    });
+    if (error) throw error;
 
-    const result = await pool.query(
-      `SELECT * FROM match_abstracts($1::vector, $2, $3)`,
-      [vectorStr, LIBRARY_SEARCH_THRESHOLD, matchCount]
-    );
-
-    return NextResponse.json({ results: result.rows }, { status: 200 });
+    return NextResponse.json({ results: data ?? [] }, { status: 200 });
   } catch (err) {
     console.error("Library search error:", err);
     return NextResponse.json({ error: "Search failed." }, { status: 500 });
