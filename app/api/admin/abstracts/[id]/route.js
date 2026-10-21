@@ -1,56 +1,33 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireActiveUser } from "@/lib/apiAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { parseAbstractInput } from "@/lib/abstractInput";
 
+// PATCH /api/admin/abstracts/[id]
+// Admin may edit any abstract. Staff may edit only abstracts they added: the
+// ownership check is part of the UPDATE itself (added_by = caller), so there is
+// no gap between checking and writing. added_by is never changed by an edit.
+// updated_by and updated_at record who last changed it.
 export async function PATCH(request, { params }) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile || profile.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireActiveUser(["admin", "staff"]);
+    if (auth.error) return auth.error;
+    const { user, profile } = auth;
 
     const { id } = await params;
-    const body = await request.json();
-    const { title, abstract_text, authors, year, accession_id, embedding, keywords } = body;
+    const body = await request.json().catch(() => null);
+    const parsed = parseAbstractInput(body);
+    if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
-    if (!title || !abstract_text) {
-      return NextResponse.json({ error: "Title and abstract text are required" }, { status: 400 });
-    }
-
-    if (!authors || !authors.trim()) {
-      return NextResponse.json({ error: "Authors is required" }, { status: 400 });
-    }
-
-    if (!embedding || !Array.isArray(embedding) || embedding.length !== 384) {
-      return NextResponse.json({ error: "Invalid embedding" }, { status: 400 });
-    }
-
-    const admin = createAdminClient();
-    const { data, error } = await admin
+    let query = createAdminClient()
       .from("abstracts")
-      .update({
-        title,
-        abstract_text,
-        authors,
-        year: year || null,
-        accession_id: accession_id || null,
-        embedding: `[${embedding.join(",")}]`,
-        keywords: Array.isArray(keywords) ? keywords : [],
-      })
-      .eq("id", id)
-      .select()
-      .single();
+      .update({ ...parsed.value, updated_by: user.id, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (profile.role === "staff") query = query.eq("added_by", user.id);
+
+    const { data, error } = await query
+      .select("id, title, accession_id, year, authors, keywords, added_by, updated_by, updated_at")
+      .maybeSingle();
 
     if (error) {
       if (error.code === "23505") {
@@ -61,7 +38,9 @@ export async function PATCH(request, { params }) {
     }
 
     if (!data) {
-      return NextResponse.json({ error: "Abstract not found" }, { status: 404 });
+      return profile.role === "staff"
+        ? NextResponse.json({ error: "You can only edit abstracts you added" }, { status: 403 })
+        : NextResponse.json({ error: "Abstract not found" }, { status: 404 });
     }
 
     return NextResponse.json({ abstract: data });

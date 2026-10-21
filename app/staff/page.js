@@ -4,7 +4,7 @@ import Navbar from "@/components/shared/Navbar";
 import PageHeader from "@/components/shared/PageHeader";
 import StatCard from "@/components/shared/StatCard";
 import { manilaMonthStartISO } from "@/lib/manilaTime";
-import { BookOpen, CalendarDays } from "lucide-react";
+import { BookOpen, CalendarDays, Plus } from "lucide-react";
 
 export default async function StaffDashboardPage() {
   const supabase = await createClient();
@@ -40,13 +40,22 @@ export default async function StaffDashboardPage() {
           title={`Welcome, ${profile.full_name.split(" ")[0]}`}
           subtitle="Library Staff"
           actions={
-            <a
-              href="/library"
-              className="inline-flex items-center gap-2 bg-gold text-navy text-sm font-semibold px-[18px] py-3 rounded-xl hover:bg-gold-light transition"
-            >
-              <BookOpen className="w-[18px] h-[18px]" strokeWidth={1.75} />
-              Browse Library
-            </a>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href="/staff/add"
+                className="inline-flex items-center gap-2 bg-gold text-navy text-sm font-semibold px-[18px] py-3 rounded-xl hover:bg-gold-light transition"
+              >
+                <Plus className="w-[18px] h-[18px]" strokeWidth={1.75} />
+                Add Abstract
+              </a>
+              <a
+                href="/library"
+                className="inline-flex items-center gap-2 bg-white/10 text-white text-sm font-semibold px-[18px] py-3 rounded-xl hover:bg-white/20 transition"
+              >
+                <BookOpen className="w-[18px] h-[18px]" strokeWidth={1.75} />
+                Browse Library
+              </a>
+            </div>
           }
         />
 
