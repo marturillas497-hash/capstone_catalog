@@ -43,6 +43,10 @@ const NAV_LINKS = {
     { href: "/submit", label: "New Scan", icon: ScanLine, group: "Library", chip: "orange" },
     { href: "/profile", label: "Profile", icon: User, group: "Account" },
   ],
+  staff: [
+    { href: "/staff", label: "Dashboard", icon: LayoutDashboard, group: "Overview" },
+    { href: "/library", label: "Library", icon: BookOpen, group: "Library", chip: "gold" },
+  ],
   admin: [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard, group: "Overview" },
     { href: "/library", label: "Library", icon: BookOpen, group: "Library", chip: "gold" },
@@ -74,11 +78,12 @@ const ROLE_LABELS = {
   student: "Student",
   capstone_adviser: "Capstone Adviser",
   admin: "Administrator",
+  staff: "Library Staff",
 };
 
 // Name and role chip for the top of the desktop sidebar footer. Students and
-// advisers link to /profile; the admin has no profile page, so it renders as
-// plain text.
+// advisers link to /profile; the admin and staff have no profile page, so they
+// render as plain text.
 function UserChip({ role, fullName, initials }) {
   const body = (
     <>
@@ -92,7 +97,7 @@ function UserChip({ role, fullName, initials }) {
     </>
   );
   const base = "flex items-center gap-2.5 rounded-lg px-2 py-2 mb-2";
-  if (role === "admin") return <div className={base}>{body}</div>;
+  if (role === "admin" || role === "staff") return <div className={base}>{body}</div>;
   return (
     <a href="/profile" className={`${base} hover:bg-white/10 transition`}>
       {body}
@@ -133,7 +138,7 @@ export default function Navbar({ role, fullName }) {
     if (href === "/adviser") {
       return pathname === href || pathname.startsWith("/adviser/students");
     }
-    if (href === "/dashboard" || href === "/admin") {
+    if (href === "/dashboard" || href === "/admin" || href === "/staff") {
       return pathname === href;
     }
     return pathname.startsWith(href);

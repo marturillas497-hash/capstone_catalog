@@ -7,10 +7,13 @@ const HOME = {
   admin: "/admin",
   capstone_adviser: "/adviser",
   student: "/dashboard",
+  staff: "/staff",
 };
 
 const STUDENT_ONLY = ["/dashboard"];
-const NO_ADMIN = ["/submit"];
+const STAFF_ONLY = ["/staff"];
+// Similarity scans are for students and advisers. Admin and staff never run them.
+const NO_SCAN = ["/submit"];
 const ADVISER_ONLY = ["/adviser"];
 const ADMIN_ONLY = ["/admin"];
 const PROFILE_ALLOWED_ROLES = ["student", "capstone_adviser"];
@@ -125,6 +128,11 @@ export async function middleware(request) {
     return toHome(role, request);
   }
 
+  // Staff-only routes
+  if (STAFF_ONLY.some((p) => pathname.startsWith(p)) && role !== "staff") {
+    return toHome(role, request);
+  }
+
   // Student-only routes
   if (STUDENT_ONLY.some((p) => pathname.startsWith(p)) && role !== "student") {
     return toHome(role, request);
@@ -135,8 +143,8 @@ export async function middleware(request) {
     return toHome(role, request);
   }
 
-  // Routes admins cannot access
-  if (NO_ADMIN.some((p) => pathname.startsWith(p)) && role === "admin") {
+  // Routes admin and staff cannot access
+  if (NO_SCAN.some((p) => pathname.startsWith(p)) && (role === "admin" || role === "staff")) {
     return toHome(role, request);
   }
 

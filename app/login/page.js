@@ -100,6 +100,7 @@ function LoginForm() {
       admin: "/admin",
       capstone_adviser: "/adviser",
       student: "/dashboard",
+      staff: "/staff",
     };
 
     router.push(homeMap[profile.role] ?? "/login");
