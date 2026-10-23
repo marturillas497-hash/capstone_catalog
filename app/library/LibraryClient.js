@@ -23,6 +23,10 @@ const SEARCH_STAGES = [
 
 const SEARCH_TIMEOUT_MS = 45000;
 
+const BASE_COLS = "id, title, abstract_text, authors, year, accession_id, keywords";
+// Filter key for rows added by the admin or from before attribution existed (null added_by).
+const ADMIN_KEY = "admin";
+
 // profile ({ role, fullName }) is resolved server-side in page.js and
 // passed down as a prop, guaranteed present on first render. Navbar below
 // used to wait on its own client-side fetch here, defaulting to
@@ -32,6 +36,12 @@ const SEARCH_TIMEOUT_MS = 45000;
 export default function LibraryClient({ profile }) {
   const supabase = createClient();
   const { getEmbedding, isReady } = useEmbedding();
+
+  // "Added by" is admin only. Non-admins never request the added_by column.
+  const isAdmin = profile.role === "admin";
+  const cols = isAdmin ? `${BASE_COLS}, added_by` : BASE_COLS;
+  const [adders, setAdders] = useState(null); // null until loaded
+  const [adderFilter, setAdderFilter] = useState("");
 
   const [abstracts, setAbstracts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +68,14 @@ export default function LibraryClient({ profile }) {
   }, []);
 
   useEffect(() => {
+    if (!isAdmin) return;
+    fetch("/api/admin/adders")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setAdders(j?.adders ?? []))
+      .catch(() => setAdders([]));
+  }, [isAdmin]);
+
+  useEffect(() => {
     function handleClickOutside(e) {
       if (tagFilterWrapRef.current && !tagFilterWrapRef.current.contains(e.target)) {
         setBrowseTagsOpen(false);
@@ -71,7 +89,7 @@ export default function LibraryClient({ profile }) {
     setLoading(true);
     const { data, error } = await supabase
       .from("abstracts")
-      .select("id, title, abstract_text, authors, year, accession_id, keywords")
+      .select(cols)
       .order("created_at", { ascending: false });
     if (!error) setAbstracts(data || []);
     setLoading(false);
@@ -92,7 +110,7 @@ export default function LibraryClient({ profile }) {
       const safe = sanitizeFilterValue(trimmed);
       let q = supabase
         .from("abstracts")
-        .select("id, title, abstract_text, authors, year, accession_id, keywords")
+        .select(cols)
         .or(`title.ilike.%${safe}%,authors.ilike.%${safe}%,abstract_text.ilike.%${safe}%,accession_id.ilike.%${safe}%`);
       if (year) q = q.eq("year", year);
       const { data } = await q.order("created_at", { ascending: false });
@@ -225,8 +243,27 @@ export default function LibraryClient({ profile }) {
     }
   }
 
+  const adminIds = useMemo(
+    () => new Set((adders ?? []).filter((a) => a.role === "admin").map((a) => a.id)),
+    [adders]
+  );
+  const staffAdders = useMemo(() => (adders ?? []).filter((a) => a.role === "staff"), [adders]);
+  const nameById = useMemo(() => new Map((adders ?? []).map((a) => [a.id, a.full_name])), [adders]);
+
+  function adderLabel(id) {
+    if (!id || adminIds.has(id)) return "Admin";
+    return nameById.get(id) ?? "Staff";
+  }
+
   const displayedAbstracts = abstracts.filter((a) => {
     if (yearFilter && a.year !== parseInt(yearFilter)) return false;
+    if (adderFilter) {
+      const mine =
+        adderFilter === ADMIN_KEY
+          ? !a.added_by || adminIds.has(a.added_by)
+          : a.added_by === adderFilter;
+      if (!mine) return false;
+    }
     if (selectedTags.length > 0) {
       const kws = a.keywords || [];
       const hasMatch = selectedTags.some((t) => kws.includes(t));
@@ -267,6 +304,20 @@ export default function LibraryClient({ profile }) {
               <option key={y} value={y}>{y}</option>
             ))}
           </select>
+          {isAdmin && adders && (
+            <select
+              value={adderFilter}
+              onChange={(e) => setAdderFilter(e.target.value)}
+              aria-label="Filter by who added the abstract"
+              className="border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-foreground bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-navy/30"
+            >
+              <option value="">Added by: anyone</option>
+              <option value={ADMIN_KEY}>Admin</option>
+              {staffAdders.map((s) => (
+                <option key={s.id} value={s.id}>{s.full_name}</option>
+              ))}
+            </select>
+          )}
           <button
             type="submit"
             disabled={searchLoading || !searchQuery.trim()}
@@ -430,7 +481,7 @@ export default function LibraryClient({ profile }) {
         ) : displayedAbstracts.length === 0 ? (
           <div className="text-center py-20 text-slate-400">
             <p className="text-lg font-medium">No abstracts found</p>
-            <p className="text-sm mt-1">Try adjusting your search, year, or tag filter.</p>
+            <p className="text-sm mt-1">Try adjusting your search or filters.</p>
           </div>
         ) : (
           <>
@@ -459,6 +510,11 @@ export default function LibraryClient({ profile }) {
                   </h3>
                   {abstract.authors && (
                     <p className="text-xs text-slate-500 mb-2 truncate">{abstract.authors}</p>
+                  )}
+                  {isAdmin && adders && (
+                    <p className="text-[11px] text-slate-400 mb-2 truncate">
+                      Added by {adderLabel(abstract.added_by)}
+                    </p>
                   )}
                   <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed mb-2">
                     {abstract.abstract_text}

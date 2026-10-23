@@ -40,14 +40,28 @@ export async function POST(request) {
     : DEFAULT_MATCH_COUNT;
 
   try {
-    const { data, error } = await createAdminClient().rpc("match_abstracts", {
+    const admin = createAdminClient();
+    const { data, error } = await admin.rpc("match_abstracts", {
       query_embedding: embedding,
       match_threshold: LIBRARY_SEARCH_THRESHOLD,
       match_count: matchCount,
     });
     if (error) throw error;
 
-    return NextResponse.json({ results: data ?? [] }, { status: 200 });
+    let results = data ?? [];
+
+    // match_abstracts does not return attribution. Admin only: one small
+    // lookup so the library can show and filter by who added each result.
+    if (auth.profile.role === "admin" && results.length > 0) {
+      const { data: rows } = await admin
+        .from("abstracts")
+        .select("id, added_by")
+        .in("id", results.map((r) => r.id));
+      const addedBy = new Map((rows ?? []).map((r) => [r.id, r.added_by]));
+      results = results.map((r) => ({ ...r, added_by: addedBy.get(r.id) ?? null }));
+    }
+
+    return NextResponse.json({ results }, { status: 200 });
   } catch (err) {
     console.error("Library search error:", err);
     return NextResponse.json({ error: "Search failed." }, { status: 500 });
