@@ -8,6 +8,7 @@ import UserTable, { StatusPill } from "@/components/shared/UserTable";
 import ResetPasswordModal from "@/components/shared/ResetPasswordModal";
 import ConfirmActionModal from "@/components/shared/ConfirmActionModal";
 import AddStaffModal from "@/components/shared/AddStaffModal";
+import StaffStatsPanel from "@/components/shared/StaffStatsPanel";
 import { Search, UserPlus, Plus, ChevronLeft, ChevronRight, Ban, RotateCcw, KeyRound } from "lucide-react";
 
 const CONFIRM_CONFIG = {
@@ -183,6 +184,8 @@ export default function StaffPage() {
             </span>
           }
         />
+
+        <StaffStatsPanel />
 
         <div className="mb-4 flex flex-wrap gap-2">
           <div className="flex-1 min-w-[200px] relative">

@@ -5,8 +5,11 @@
  *
  * Long titles wrap onto a second line rather than being cut off.
  *
- * items: [{ id, title, count }], already sorted descending.
+ * items: [{ id, title, count, href? }], already sorted descending.
+ * When href is set, the title becomes a link.
  */
+import Link from "next/link";
+
 export default function RankedBars({
   items,
   color = "#003366",
@@ -27,7 +30,11 @@ export default function RankedBars({
           <div className="flex items-start gap-2.5 text-sm text-slate-700">
             <span className="w-5 shrink-0 font-bold text-slate-400">{i + 1}</span>
             <span className="flex-1 min-w-0 font-medium leading-snug break-words">
-              {item.title}
+              {item.href ? (
+                <Link href={item.href} className="hover:text-navy hover:underline">{item.title}</Link>
+              ) : (
+                item.title
+              )}
             </span>
             <span className="font-bold text-navy shrink-0">{item.count}</span>
           </div>
