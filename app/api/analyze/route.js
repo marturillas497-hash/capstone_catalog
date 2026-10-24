@@ -34,7 +34,7 @@ const VERDICT_GUIDANCE = {
 
 const OVERLAP_GUIDANCE = {
   GREEN: "No meaningful overlap was found. Say this clearly in one or two sentences, never more than two. You may mention the closest study shown below only to note that you checked, not as a warning.",
-  DEFAULT: "Explain in plain, simple language which specific parts of the proposal overlap with the studies shown below. Name each matching study you discuss by its exact title, accession ID, and similarity score, in the same order they are numbered above. Only describe what a study's abstract above actually says, never attribute features to it that the text does not mention. You do not need to discuss every match, but always discuss match #1, saying plainly if its overlap is only superficial. Never mention or explain any other study you leave out, and never use first person about your own choices. Maximum 5 sentences.",
+  DEFAULT: "Explain in plain, simple language which specific parts of the proposal overlap with the studies shown below. Name each matching study you discuss by its exact title, accession ID, and similarity score, in the same order they are numbered above. Only describe what a study's abstract above actually says, never attribute features to it that the text does not mention. Always discuss match #1, saying plainly if its overlap is only superficial. Discuss another listed study only if it truly overlaps. Write nothing at all about studies you do not discuss: no sentence may say that other studies were not examined, not discussed, or not relevant. Never use first person about your own choices. Maximum 5 sentences.",
 };
 
 // Long enough to reach what a study actually builds, not just its background.
@@ -65,8 +65,14 @@ function buildMatchContext(matches, riskLevel) {
 // Strips markdown the AI was told not to use but may emit anyway. Defense in
 // depth alongside the prompt instruction. See PRD Section 21 note on why
 // both layers are kept rather than relying on the prompt alone.
+// Sentences commenting on studies the model left out ("No other listed studies
+// were examined."). The prompt forbids them, this removes any that slip through.
+const LEFT_OUT_SENTENCE =
+  /[^.\n]*\b(?:other|remaining)\b[^.\n]*\b(?:studies|study|matches)\b[^.\n]*\b(?:examined|discussed|reviewed|considered|analy[sz]ed)\b[^.\n]*\.[ \t]*/gi;
+
 function sanitizeAdvisoryText(text) {
   return text
+    .replace(LEFT_OUT_SENTENCE, "")
     .replace(/\*\*/g, "")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/^[-*]\s+/gm, "")
@@ -108,7 +114,7 @@ CRITICAL ANALYSIS OF OVERLAP
 ${overlapInstruction}
 
 PROPOSED UNIQUE TITLES
-Exactly 3 titles, one per line, numbered 1, 2, 3, with no label or description. Each is 12-15 words and describes one system with one clear purpose (never a feasibility study, analysis, assessment, or review):
+Exactly 3 titles, one per line, numbered 1, 2, 3, with no label or description. Each is 12-15 words and describes one system with one clear purpose (never a feasibility study, analysis, assessment, or review). No title may reuse the wording of a matched study title above, not even in a different order: change the subject words, not just the phrasing.
 1. Same core system type, scoped to a narrower or different function or record type than the matched studies cover (never one their abstracts already name).
 2. Same core system type, applied to a different sector or beneficiary group.
 3. Same core system type, plus exactly one AI feature as its core differentiator that is genuinely useful to the system. Only one technology in this title.
