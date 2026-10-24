@@ -48,6 +48,7 @@ const NAV_LINKS = {
   staff: [
     { href: "/staff", label: "Dashboard", icon: LayoutDashboard, group: "Overview" },
     { href: "/staff/abstracts", label: "My Abstracts", icon: FileText, group: "Overview" },
+    { href: "/staff/analytics", label: "Analytics", icon: BarChart3, group: "Overview" },
     { href: "/library", label: "Library", icon: BookOpen, group: "Library", chip: "gold" },
     { href: "/staff/add", label: "Add Abstract", icon: Plus, group: "Library" },
   ],

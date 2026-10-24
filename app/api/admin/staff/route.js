@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { requireActiveUser } from "@/lib/apiAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateReadablePassword } from "@/lib/passwordWords";
+import { emailConfigured, sendStaffWelcomeEmail } from "@/lib/email";
 
 // GET  /api/admin/staff  Paginated, searched, sorted list of staff accounts.
 // POST /api/admin/staff  Admin creates a staff account. The starting password
@@ -96,6 +97,18 @@ export async function POST(request) {
     if (profileErr) {
       await admin.auth.admin.deleteUser(userId);
       throw profileErr;
+    }
+
+    // After the response, so the admin does not wait on SMTP and a mail failure
+    // cannot undo the account. The password is not part of the email.
+    if (emailConfigured()) {
+      after(async () => {
+        try {
+          await sendStaffWelcomeEmail({ to: email, name: fullName });
+        } catch (mailErr) {
+          console.error("[POST /api/admin/staff] Welcome email failed:", mailErr.message);
+        }
+      });
     }
 
     return NextResponse.json({ id: userId, fullName, email, password }, { status: 201 });

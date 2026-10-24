@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { emailConfigured, sendWelcomeEmail } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -98,6 +99,24 @@ export async function POST(request) {
     if (metaError) {
       await admin.auth.admin.deleteUser(userId);
       return NextResponse.json({ error: "Failed to save student details. Please try again." }, { status: 500 });
+    }
+
+    /*
+     * Runs after the response is sent, so the SMTP round trip does not delay
+     * registration and a mail failure can never fail an account that already exists.
+     */
+    if (emailConfigured()) {
+      after(async () => {
+        try {
+          await sendWelcomeEmail({
+            to: email,
+            name: fullName.trim(),
+            studentId: studentId.trim(),
+          });
+        } catch (err) {
+          console.error("[register] Welcome email failed:", err.message);
+        }
+      });
     }
   }
 
