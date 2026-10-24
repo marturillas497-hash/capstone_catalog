@@ -34,7 +34,7 @@ const VERDICT_GUIDANCE = {
 
 const OVERLAP_GUIDANCE = {
   GREEN: "No meaningful overlap was found. Say this clearly in one or two sentences, never more than two. You may mention the closest study shown below only to note that you checked, not as a warning.",
-  DEFAULT: "Explain in plain, simple language which specific parts of the proposal overlap with the studies shown below. Name each matching study you discuss by its exact title, accession ID, and similarity score, in the same order they are numbered above. Only describe what a study's abstract above actually says, never attribute features to it that the text does not mention. Always discuss match #1, saying plainly if its overlap is only superficial. Discuss another listed study only if it truly overlaps. Write nothing at all about studies you do not discuss: no sentence may say that other studies were not examined, not discussed, or not relevant. Never use first person about your own choices. Maximum 5 sentences.",
+  DEFAULT: "Explain in plain, simple language how the student's proposal is similar to each study listed below, taking them in the order they are numbered above. Name each study by its exact title, accession ID, and similarity score. For each one, point to the specific features, users, or purposes the proposal shares with that study's abstract, and say plainly if the overlap is only superficial. Only describe what a study's abstract above actually says, never attribute features to it that the text does not mention. The list may hold just one study, which is normal: never comment on how many studies are listed or considered. Never use first person about your own choices. Maximum 5 sentences.",
 };
 
 // Long enough to reach what a study actually builds, not just its background.
@@ -65,14 +65,22 @@ function buildMatchContext(matches, riskLevel) {
 // Strips markdown the AI was told not to use but may emit anyway. Defense in
 // depth alongside the prompt instruction. See PRD Section 21 note on why
 // both layers are kept rather than relying on the prompt alone.
-// Sentences commenting on studies the model left out ("No other listed studies
-// were examined."). The prompt forbids them, this removes any that slip through.
-const LEFT_OUT_SENTENCE =
-  /[^.\n]*\b(?:other|remaining)\b[^.\n]*\b(?:studies|study|matches)\b[^.\n]*\b(?:examined|discussed|reviewed|considered|analy[sz]ed)\b[^.\n]*\.[ \t]*/gi;
+// Sentences about how many studies were listed or considered ("No additional
+// studies are listed, so only this match is considered."). The prompt forbids
+// them, this removes any that slip through.
+const STUDY_COUNT_SENTENCE = new RegExp(
+  [
+    String.raw`[^.\n]*\b(?:other|remaining|additional|further)\b[^.\n]*\b(?:studies|study|matches)\b[^.\n]*\b(?:examined|discussed|reviewed|considered|analy[sz]ed)\b[^.\n]*\.[ \t]*`,
+    String.raw`[^.\n]*\bonly (?:this|the (?:top|first)) (?:match|study)\b[^.\n]*\b(?:examined|discussed|reviewed|considered|analy[sz]ed)\b[^.\n]*\.[ \t]*`,
+  ].join("|"),
+  "gi"
+);
 
 function sanitizeAdvisoryText(text) {
   return text
-    .replace(LEFT_OUT_SENTENCE, "")
+    .replace(STUDY_COUNT_SENTENCE, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
     .replace(/\*\*/g, "")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/^[-*]\s+/gm, "")
