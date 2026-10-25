@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { UserPlus } from "lucide-react";
 
-// Admin creates a staff account. The server generates the starting password
-// and returns it once, so the caller shows it in ResetPasswordModal.
+// Admin creates a staff account. The server emails the new staff member a link
+// to set their own password, so no password is shown or handled here.
 export default function AddStaffModal({ open, onClose, onCreated }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -65,7 +65,7 @@ export default function AddStaffModal({ open, onClose, onCreated }) {
           <h2 className="font-display text-xl text-navy">Add staff</h2>
         </div>
         <p className="text-sm text-slate-600 mb-5">
-          A starting password is generated and shown once after you create the account.
+          A link to set their password is emailed to them. It works once and expires in 1 hour.
         </p>
 
         <label className="block text-xs font-semibold text-slate-500 mb-1.5" htmlFor="staff-name">

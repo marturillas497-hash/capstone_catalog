@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import Navbar from "@/components/shared/Navbar";
 import PageHeader from "@/components/shared/PageHeader";
 import UserTable, { StatusPill } from "@/components/shared/UserTable";
-import ResetPasswordModal from "@/components/shared/ResetPasswordModal";
+import NoticeModal from "@/components/shared/NoticeModal";
 import { Search, Users, ChevronLeft, ChevronRight, Ban, RotateCcw, KeyRound } from "lucide-react";
 import { YEAR_LEVELS, SECTIONS } from "@/lib/constants";
 import ConfirmActionModal from "@/components/shared/ConfirmActionModal";
@@ -30,7 +30,7 @@ export default function UsersPage() {
   const [adviserOptions, setAdviserOptions] = useState([]);
 
   const [busyId, setBusyId] = useState(null);
-  const [resetModal, setResetModal] = useState({ open: false, password: "", fullName: "" });
+  const [notice, setNotice] = useState({ open: false, title: "", message: "", warn: false });
   const [confirmAction, setConfirmAction] = useState({ open: false, type: null, row: null });
 
   const searchTimeout = useRef(null);
@@ -121,9 +121,14 @@ export default function UsersPage() {
       if (type === "reset") {
         const res = await fetch(`/api/admin/users/${id}/resetpassword`, { method: "POST" });
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error || "Failed to reset password");
+        if (!res.ok) throw new Error(json.error || "Failed to send the reset link");
         setConfirmAction({ open: false, type: null, row: null });
-        setResetModal({ open: true, password: json.password, fullName: row.full_name });
+        setNotice({
+          open: true,
+          title: "Reset link sent",
+          message: `A link to set a new password was emailed to ${json.email}. It works once and expires in 1 hour.`,
+          warn: false,
+        });
       } else {
         const res = await fetch(`/api/admin/users/${id}/status`, {
           method: "PATCH",
@@ -180,11 +185,11 @@ export default function UsersPage() {
       icon: KeyRound,
       iconBg: "bg-navy",
       iconColor: "text-white",
-      title: "Reset Password",
-      confirmLabel: "Reset Password",
-      confirmingLabel: "Resetting…",
+      title: "Send Reset Link",
+      confirmLabel: "Send Link",
+      confirmingLabel: "Sending…",
       confirmClassName: "bg-navy hover:bg-navy-dark",
-      description: (name) => `Reset the password for ${name}? Their current password stops working immediately, and a new one is generated for you to deliver to them.`,
+      description: (name) => `Send ${name} an email with a link to set a new password? Their current password stops working immediately. The link works once and expires in 1 hour.`,
     },
   };
 
@@ -197,7 +202,7 @@ export default function UsersPage() {
         <PageHeader
           variant="stats"
           title="User Management"
-          subtitle="Suspend, unsuspend, or reset the password of any account"
+          subtitle="Suspend, unsuspend, or send a password reset link to any account"
           icon={Users}
           badge={
             <span className="bg-orange/10 text-[#B84E00] text-[13px] font-bold rounded-full px-2.5 py-0.5">
@@ -326,11 +331,12 @@ export default function UsersPage() {
         )}
       </main>
 
-      <ResetPasswordModal
-        open={resetModal.open}
-        onClose={() => setResetModal({ open: false, password: "", fullName: "" })}
-        password={resetModal.password}
-        fullName={resetModal.fullName}
+      <NoticeModal
+        open={notice.open}
+        onClose={() => setNotice({ open: false, title: "", message: "", warn: false })}
+        title={notice.title}
+        message={notice.message}
+        warn={notice.warn}
       />
 
       <ConfirmActionModal

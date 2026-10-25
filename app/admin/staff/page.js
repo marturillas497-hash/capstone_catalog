@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import Navbar from "@/components/shared/Navbar";
 import PageHeader from "@/components/shared/PageHeader";
 import UserTable, { StatusPill } from "@/components/shared/UserTable";
-import ResetPasswordModal from "@/components/shared/ResetPasswordModal";
+import NoticeModal from "@/components/shared/NoticeModal";
 import ConfirmActionModal from "@/components/shared/ConfirmActionModal";
 import AddStaffModal from "@/components/shared/AddStaffModal";
 import StaffStatsPanel from "@/components/shared/StaffStatsPanel";
@@ -36,11 +36,11 @@ const CONFIRM_CONFIG = {
     icon: KeyRound,
     iconBg: "bg-navy",
     iconColor: "text-white",
-    title: "Reset Password",
-    confirmLabel: "Reset Password",
-    confirmingLabel: "Resetting…",
+    title: "Send Reset Link",
+    confirmLabel: "Send Link",
+    confirmingLabel: "Sending…",
     confirmClassName: "bg-navy hover:bg-navy-dark",
-    description: (name) => `Reset the password for ${name}? Their current password stops working immediately, and a new one is generated for you to deliver to them.`,
+    description: (name) => `Send ${name} an email with a link to set a new password? Their current password stops working immediately. The link works once and expires in 1 hour.`,
   },
 };
 
@@ -63,7 +63,7 @@ export default function StaffPage() {
 
   const [busyId, setBusyId] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [passwordModal, setPasswordModal] = useState({ open: false, password: "", fullName: "", created: false });
+  const [notice, setNotice] = useState({ open: false, title: "", message: "", warn: false });
   const [confirmAction, setConfirmAction] = useState({ open: false, type: null, row: null });
 
   const searchTimeout = useRef(null);
@@ -129,9 +129,14 @@ export default function StaffPage() {
       if (type === "reset") {
         const res = await fetch(`/api/admin/users/${row.id}/resetpassword`, { method: "POST" });
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error || "Failed to reset password");
+        if (!res.ok) throw new Error(json.error || "Failed to send the reset link");
         setConfirmAction({ open: false, type: null, row: null });
-        setPasswordModal({ open: true, password: json.password, fullName: row.full_name, created: false });
+        setNotice({
+          open: true,
+          title: "Reset link sent",
+          message: `A link to set a new password was emailed to ${json.email}. It works once and expires in 1 hour.`,
+          warn: false,
+        });
       } else {
         const res = await fetch(`/api/admin/users/${row.id}/status`, {
           method: "PATCH",
@@ -152,7 +157,21 @@ export default function StaffPage() {
 
   function handleCreated(created) {
     setAddOpen(false);
-    setPasswordModal({ open: true, password: created.password, fullName: created.fullName, created: true });
+    setNotice(
+      created.emailSent
+        ? {
+            open: true,
+            title: "Staff account created",
+            message: `A link to set their password was emailed to ${created.email}. It works once and expires in 1 hour.`,
+            warn: false,
+          }
+        : {
+            open: true,
+            title: "Account created, email not sent",
+            message: `${created.fullName}'s account exists, but the email could not be sent. Use Send reset link on their row to send it once email is working.`,
+            warn: true,
+          }
+    );
     fetchRows();
   }
 
@@ -255,13 +274,12 @@ export default function StaffPage() {
 
       <AddStaffModal open={addOpen} onClose={() => setAddOpen(false)} onCreated={handleCreated} />
 
-      <ResetPasswordModal
-        open={passwordModal.open}
-        onClose={() => setPasswordModal({ open: false, password: "", fullName: "", created: false })}
-        password={passwordModal.password}
-        fullName={passwordModal.fullName}
-        title={passwordModal.created ? "Staff account created" : "Password reset"}
-        label={passwordModal.created ? "Starting password for" : "New password for"}
+      <NoticeModal
+        open={notice.open}
+        onClose={() => setNotice({ open: false, title: "", message: "", warn: false })}
+        title={notice.title}
+        message={notice.message}
+        warn={notice.warn}
       />
 
       <ConfirmActionModal

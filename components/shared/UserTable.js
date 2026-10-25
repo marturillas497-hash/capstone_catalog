@@ -73,7 +73,7 @@ function RowMenu({ row, busy, dropUp, onToggleStatus, onResetPassword }) {
             className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold text-navy hover:bg-slate-100 transition-colors"
           >
             <KeyRound className="w-[18px] h-[18px]" strokeWidth={1.75} />
-            Reset password
+            Send reset link
           </button>
           <div className="h-px bg-slate-100 my-1 mx-1.5" />
           <button

@@ -1,13 +1,15 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import { requireActiveUser } from "@/lib/apiAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateReadablePassword } from "@/lib/passwordWords";
-import { emailConfigured, sendStaffWelcomeEmail } from "@/lib/email";
+import { createPasswordLink } from "@/lib/passwordLink";
+import { emailConfigured, sendPasswordLinkEmail } from "@/lib/email";
 
 // GET  /api/admin/staff  Paginated, searched, sorted list of staff accounts.
-// POST /api/admin/staff  Admin creates a staff account. The starting password
-//                        is generated here and returned exactly once. It is
-//                        never stored or logged.
+// POST /api/admin/staff  Admin creates a staff account. Nobody is given a
+//                        password: the account starts with a random one nobody
+//                        knows and the staff member gets an emailed link
+//                        (valid 1 hour) to set their own.
 //
 // Staff never self-register: there is no public route that can create this role.
 // Both handlers use requireActiveUser, so a suspended admin session is refused too.
@@ -69,11 +71,9 @@ export async function POST(request) {
     }
 
     const admin = createAdminClient();
-    const password = generateReadablePassword();
-
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
       email,
-      password,
+      password: randomBytes(32).toString("hex"),
       email_confirm: true,
     });
 
@@ -99,21 +99,21 @@ export async function POST(request) {
       throw profileErr;
     }
 
-    // After the response, so the admin does not wait on SMTP and a mail failure
-    // cannot undo the account. The password is not part of the email.
+    // Awaited so the admin learns whether the email went out. A mail failure never
+    // undoes the account: the admin can send the link again with Reset password.
+    let emailSent = false;
     if (emailConfigured()) {
-      after(async () => {
-        try {
-          await sendStaffWelcomeEmail({ to: email, name: fullName });
-        } catch (mailErr) {
-          console.error("[POST /api/admin/staff] Welcome email failed:", mailErr.message);
-        }
-      });
+      try {
+        const link = await createPasswordLink(admin, { userId, email });
+        await sendPasswordLinkEmail({ to: email, name: fullName, link, variant: "invite" });
+        emailSent = true;
+      } catch (mailErr) {
+        console.error("[POST /api/admin/staff] Invite email failed:", mailErr.message);
+      }
     }
 
-    return NextResponse.json({ id: userId, fullName, email, password }, { status: 201 });
+    return NextResponse.json({ id: userId, fullName, email, emailSent }, { status: 201 });
   } catch (err) {
-    // The generated password is deliberately never logged.
     console.error("[POST /api/admin/staff]", err);
     return NextResponse.json({ error: "Failed to create the staff account." }, { status: 500 });
   }
