@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/register", "/"];
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/"];
 
 const HOME = {
   admin: "/admin",
@@ -116,6 +116,12 @@ export async function middleware(request) {
   // Rejected or suspended — block
   if (status === "rejected" || status === "suspended") {
     return toLogin(request, `?error=${status}`);
+  }
+
+  // Set-your-password links flag the account until the new password is saved.
+  // app_metadata is server-only, so a user cannot clear this flag themselves.
+  if (user.app_metadata?.must_change_password && pathname !== "/set-password") {
+    return NextResponse.redirect(new URL("/set-password", request.url));
   }
 
   // Admin-only routes

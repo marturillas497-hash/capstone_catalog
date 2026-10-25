@@ -14,6 +14,8 @@ const STATUS_MESSAGES = {
     "Your account has been suspended. Please contact the administrator.",
   registered:
     "Account created successfully. You can now log in.",
+  link_invalid:
+    "That link has expired or was already used. Use Forgot password to get a new one.",
 };
 
 const FEATURES = [
@@ -253,6 +255,12 @@ function LoginForm() {
                     <Eye className="w-4 h-4" strokeWidth={1.75} />
                   )}
                 </button>
+              </div>
+
+              <div className="text-right -mt-1">
+                <a href="/forgot-password" className="text-xs text-slate-500 hover:text-navy hover:underline">
+                  Forgot password?
+                </a>
               </div>
 
               {error && (
