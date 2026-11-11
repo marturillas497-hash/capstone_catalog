@@ -31,14 +31,17 @@ export async function PATCH(request, { params }) {
   const admin = createAdminClient();
 
   if (adviserId) {
-    const { data: adviserProfile } = await admin
-      .from("profiles")
-      .select("role, status")
-      .eq("id", adviserId)
-      .single();
+    const [{ data: adviserProfile }, { data: studentProfile }] = await Promise.all([
+      admin.from("profiles").select("role, status, program_id").eq("id", adviserId).single(),
+      admin.from("profiles").select("program_id").eq("id", id).single(),
+    ]);
 
+    // Active adviser in the same program as the student.
     const isValidAdviser =
-      adviserProfile?.role === "capstone_adviser" && adviserProfile?.status === "active";
+      adviserProfile?.role === "capstone_adviser" &&
+      adviserProfile?.status === "active" &&
+      !!adviserProfile?.program_id &&
+      adviserProfile.program_id === studentProfile?.program_id;
 
     if (!isValidAdviser) {
       return NextResponse.json({ error: "Invalid adviser selected." }, { status: 400 });
