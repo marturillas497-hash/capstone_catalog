@@ -14,6 +14,8 @@ export default function AnalyticsPage() {
   const [topWeek, setTopWeek] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [programs, setPrograms] = useState([]);
+  const [programId, setProgramId] = useState(""); // "" means all programs
   const [profile, setProfile] = useState({ role: "admin", fullName: "" });
 
   useEffect(() => {
@@ -27,10 +29,15 @@ export default function AnalyticsPage() {
           .single();
         if (data) setProfile({ role: data.role, fullName: data.full_name });
       }
-      await fetchAnalytics();
+      const { data: programRows } = await supabase.from("programs").select("id, code, name").order("name");
+      setPrograms(programRows ?? []);
     }
     init();
   }, []);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [programId]);
 
   async function fetchAnalytics() {
     setLoading(true);
@@ -38,12 +45,18 @@ export default function AnalyticsPage() {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+    // A view belongs to the program of its abstract, so the filter goes through
+    // the inner join to abstracts.
+    const scope = (q) => (programId ? q.eq("abstracts.program_id", programId) : q);
+
     const [totalRes, weekRes, historyRes] = await Promise.all([
-      supabase.from("abstract_views").select("id", { count: "exact", head: true }),
-      supabase.from("abstract_views").select("id", { count: "exact", head: true }).gte("viewed_at", weekAgo),
-      supabase
-        .from("abstract_views")
-        .select("viewed_at, viewer_id, abstract_id, abstracts(title), profiles(full_name, student_metadata!profile_id(id_number))")
+      scope(supabase.from("abstract_views").select("id, abstracts!inner(program_id)", { count: "exact", head: true })),
+      scope(supabase.from("abstract_views").select("id, abstracts!inner(program_id)", { count: "exact", head: true })).gte("viewed_at", weekAgo),
+      scope(
+        supabase
+          .from("abstract_views")
+          .select("viewed_at, viewer_id, abstract_id, abstracts!inner(title, program_id), profiles(full_name, student_metadata!profile_id(id_number))")
+      )
         .order("viewed_at", { ascending: false })
         .limit(50),
     ]);
@@ -55,9 +68,9 @@ export default function AnalyticsPage() {
 
     setHistory(historyRes.data || []);
 
-    const allViews = await supabase
-      .from("abstract_views")
-      .select("abstract_id, abstracts(title)");
+    const allViews = await scope(
+      supabase.from("abstract_views").select("abstract_id, abstracts!inner(title, program_id)")
+    );
 
     if (allViews.data) {
       const countMap = {};
@@ -70,10 +83,9 @@ export default function AnalyticsPage() {
       setTopAll(sorted.slice(0, 10));
     }
 
-    const weekViews = await supabase
-      .from("abstract_views")
-      .select("abstract_id, abstracts(title)")
-      .gte("viewed_at", weekAgo);
+    const weekViews = await scope(
+      supabase.from("abstract_views").select("abstract_id, abstracts!inner(title, program_id)")
+    ).gte("viewed_at", weekAgo);
 
     if (weekViews.data) {
       const countMap = {};
@@ -112,6 +124,23 @@ export default function AnalyticsPage() {
             { label: "This week", value: loading ? "..." : stats.viewsThisWeek, tone: "navy" },
           ]}
         />
+
+        <div className="flex items-center justify-end gap-2 mb-4">
+          <label htmlFor="program-filter" className="text-xs font-medium text-slate-600">
+            Program
+          </label>
+          <select
+            id="program-filter"
+            value={programId}
+            onChange={(e) => setProgramId(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-foreground bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-navy/30"
+          >
+            <option value="">All programs</option>
+            {programs.map((p) => (
+              <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+            ))}
+          </select>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-start">
           <div className="bg-background shadow-neo rounded-2xl p-6">

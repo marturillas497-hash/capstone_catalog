@@ -27,9 +27,20 @@ export default function AdminPage() {
   const [recent, setRecent] = useState([]);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState({ role: "admin", fullName: "" });
+  const [programs, setPrograms] = useState([]);
+  const [programId, setProgramId] = useState(""); // "" means all programs
+
+  useEffect(() => {
+    supabase
+      .from("programs")
+      .select("id, code, name")
+      .order("name")
+      .then(({ data }) => setPrograms(data ?? []));
+  }, []);
 
   useEffect(() => {
     async function fetchAll() {
+      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data } = await supabase
@@ -42,16 +53,24 @@ export default function AdminPage() {
 
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+      // Everything except the pending-adviser alert follows the selected program.
+      // The alert stays global because it is an action item for the admin.
+      const byProgram = (q) => (programId ? q.eq("program_id", programId) : q);
+
       const [students, abstracts, abstractsWeek, pending, reports, reportsWeek, recentAbstracts, weekViews, chartRes] = await Promise.all([
-        supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student"),
-        supabase.from("abstracts").select("id", { count: "exact", head: true }),
-        supabase.from("abstracts").select("id", { count: "exact", head: true }).gte("created_at", weekAgo),
+        byProgram(supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student")),
+        byProgram(supabase.from("abstracts").select("id", { count: "exact", head: true })),
+        byProgram(supabase.from("abstracts").select("id", { count: "exact", head: true }).gte("created_at", weekAgo)),
         supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "capstone_adviser").eq("status", "pending"),
-        supabase.from("similarity_reports").select("id", { count: "exact", head: true }),
-        supabase.from("similarity_reports").select("id", { count: "exact", head: true }).gte("created_at", weekAgo),
-        supabase.from("abstracts").select("id, title, created_at").order("created_at", { ascending: false }).limit(3),
-        supabase.from("abstract_views").select("abstract_id, abstracts(title)").gte("viewed_at", weekAgo),
-        fetch("/api/admin/stats").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        byProgram(supabase.from("similarity_reports").select("id", { count: "exact", head: true })),
+        byProgram(supabase.from("similarity_reports").select("id", { count: "exact", head: true }).gte("created_at", weekAgo)),
+        byProgram(supabase.from("abstracts").select("id, title, created_at")).order("created_at", { ascending: false }).limit(3),
+        // A view belongs to the program of its abstract.
+        (() => {
+          const q = supabase.from("abstract_views").select("abstract_id, abstracts!inner(title, program_id)").gte("viewed_at", weekAgo);
+          return programId ? q.eq("abstracts.program_id", programId) : q;
+        })(),
+        fetch(`/api/admin/stats${programId ? `?programId=${programId}` : ""}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
 
       setStats({
@@ -81,7 +100,7 @@ export default function AdminPage() {
       setLoading(false);
     }
     fetchAll();
-  }, []);
+  }, [programId]);
 
   const hasAlert = stats.pendingAdvisers > 0;
 
@@ -111,6 +130,23 @@ export default function AdminPage() {
           title="System Overview"
           subtitle="Library, accounts, and scan activity at a glance."
         />
+
+        <div className="flex items-center justify-end gap-2 mb-4">
+          <label htmlFor="program-filter" className="text-xs font-medium text-slate-600">
+            Program
+          </label>
+          <select
+            id="program-filter"
+            value={programId}
+            onChange={(e) => setProgramId(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-foreground bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-navy/30"
+          >
+            <option value="">All programs</option>
+            {programs.map((p) => (
+              <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+            ))}
+          </select>
+        </div>
 
         {!loading && hasAlert && (
           <Link

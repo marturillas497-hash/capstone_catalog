@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isUuid } from "@/lib/constants";
 
 // GET /api/admin/users/students
 // Paginated, searched, sorted, and filtered list of registered students
@@ -41,6 +42,7 @@ export async function GET(request) {
     const q = (searchParams.get("q") || "").trim();
     const sort = SORT_KEYS.includes(searchParams.get("sort")) ? searchParams.get("sort") : "date";
     const status = searchParams.get("status") || "";
+    const programId = isUuid(searchParams.get("programId")) ? searchParams.get("programId") : null;
     const adviserId = searchParams.get("adviserId") || "";
     const yearLevel = searchParams.get("yearLevel") || "";
     const section = searchParams.get("section") || "";
@@ -56,6 +58,7 @@ export async function GET(request) {
       p_sort: sort,
       p_limit: PAGE_SIZE,
       p_offset: offset,
+      p_program: programId,
     });
     if (error) throw error;
 

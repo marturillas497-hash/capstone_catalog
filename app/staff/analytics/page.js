@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getAuthHeaders } from "@/lib/authHeaders";
 import { getViewAnalytics } from "@/lib/dashboardStats";
+import { createClient } from "@/lib/supabase/server";
+import { isUuid } from "@/lib/constants";
 import Navbar from "@/components/shared/Navbar";
 import PageHeader from "@/components/shared/PageHeader";
 import RankedBars from "@/components/shared/RankedBars";
@@ -10,11 +12,19 @@ const toItems = (rows) => rows.map((r) => ({ id: r.id, title: r.title, count: r.
 
 // Staff only (middleware covers /staff). Aggregates only: which abstracts are
 // read most. Never who read them, so no viewer names, ids or timestamps.
-export default async function StaffAnalyticsPage() {
+export default async function StaffAnalyticsPage({ searchParams }) {
   const me = await getAuthHeaders();
   if (!me || me.role !== "staff") redirect("/login");
 
-  const { total, week, topAll, topWeek } = await getViewAnalytics();
+  // Optional ?program=<id> narrows the aggregates to one program. Empty means all.
+  const sp = await searchParams;
+  const programId = isUuid(sp?.program) ? sp.program : null;
+
+  const supabase = await createClient();
+  const [{ total, week, topAll, topWeek }, { data: programs }] = await Promise.all([
+    getViewAnalytics(programId),
+    supabase.from("programs").select("id, code, name").order("name"),
+  ]);
 
   return (
     <div className="min-h-screen bg-background md:flex">
@@ -31,6 +41,29 @@ export default async function StaffAnalyticsPage() {
             { label: "This week", value: week, tone: "navy" },
           ]}
         />
+
+        <form method="get" className="flex items-center justify-end gap-2 mb-4">
+          <label htmlFor="program" className="text-xs font-medium text-slate-600">
+            Program
+          </label>
+          <select
+            id="program"
+            name="program"
+            defaultValue={programId ?? ""}
+            className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-foreground bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-navy/30"
+          >
+            <option value="">All programs</option>
+            {(programs ?? []).map((p) => (
+              <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="bg-navy text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-navy-dark transition-colors"
+          >
+            Apply
+          </button>
+        </form>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           <div className="bg-background shadow-neo rounded-2xl p-6">
