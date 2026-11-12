@@ -18,12 +18,12 @@ const YEAR_OPTIONS = Array.from({ length: 20 }, (_, i) => new Date().getFullYear
 // staged rather than a literal server-driven readout.
 const SEARCH_STAGES = [
   { key: "embedding", label: "Generating embedding…", description: "Converting your query into a semantic fingerprint." },
-  { key: "searching", label: "Searching the library…", description: "Comparing against the BSIS capstone archive." },
+  { key: "searching", label: "Searching the library…", description: "Comparing against the capstone archive." },
 ];
 
 const SEARCH_TIMEOUT_MS = 45000;
 
-const BASE_COLS = "id, title, abstract_text, authors, year, accession_id, keywords";
+const BASE_COLS = "id, title, abstract_text, authors, year, accession_id, keywords, program_id";
 // Filter key for rows added by the admin or from before attribution existed (null added_by).
 const ADMIN_KEY = "admin";
 
@@ -33,7 +33,7 @@ const ADMIN_KEY = "admin";
 // { role: null, fullName: "" } in the meantime — since NAV_LINKS[null]
 // doesn't exist, that meant an empty nav-link list (just the logo/sign-out
 // shell) for as long as that fetch was in flight, on every page load.
-export default function LibraryClient({ profile }) {
+export default function LibraryClient({ profile, programs = [], ownProgramId = null }) {
   const supabase = createClient();
   const { getEmbedding, isReady } = useEmbedding();
 
@@ -42,6 +42,11 @@ export default function LibraryClient({ profile }) {
   const cols = isAdmin ? `${BASE_COLS}, added_by` : BASE_COLS;
   const [adders, setAdders] = useState(null); // null until loaded
   const [adderFilter, setAdderFilter] = useState("");
+
+  // Students and advisers start on their own program. Admin and staff have none,
+  // so they start on all programs. Anyone can switch to see other programs.
+  const [programFilter, setProgramFilter] = useState(ownProgramId ?? "");
+  const programCodeById = useMemo(() => new Map(programs.map((p) => [p.id, p.code])), [programs]);
 
   const [abstracts, setAbstracts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -87,10 +92,9 @@ export default function LibraryClient({ profile }) {
 
   async function fetchAll() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("abstracts")
-      .select(cols)
-      .order("created_at", { ascending: false });
+    let all = supabase.from("abstracts").select(cols);
+    if (programFilter) all = all.eq("program_id", programFilter);
+    const { data, error } = await all.order("created_at", { ascending: false });
     if (!error) setAbstracts(data || []);
     setLoading(false);
   }
@@ -113,6 +117,7 @@ export default function LibraryClient({ profile }) {
         .select(cols)
         .or(`title.ilike.%${safe}%,authors.ilike.%${safe}%,abstract_text.ilike.%${safe}%,accession_id.ilike.%${safe}%`);
       if (year) q = q.eq("year", year);
+      if (programFilter) q = q.eq("program_id", programFilter);
       const { data } = await q.order("created_at", { ascending: false });
       setAbstracts(data || []);
       setLoading(false);
@@ -120,8 +125,9 @@ export default function LibraryClient({ profile }) {
     }
 
     if (!isReady) return;
-    if (lastSemanticQuery.current === trimmed && !year) return;
-    lastSemanticQuery.current = trimmed;
+    const semanticKey = `${programFilter}|${trimmed}`;
+    if (lastSemanticQuery.current === semanticKey && !year) return;
+    lastSemanticQuery.current = semanticKey;
 
     setSearchLoading(true);
     setSearchStageIndex(0);
@@ -135,7 +141,7 @@ export default function LibraryClient({ profile }) {
       const res = await fetch("/api/library/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ embedding, year: year ? parseInt(year) : null }),
+        body: JSON.stringify({ embedding, year: year ? parseInt(year) : null, programId: programFilter || null }),
         signal: controller.signal,
       });
       clearTimeout(abortTimer);
@@ -148,7 +154,7 @@ export default function LibraryClient({ profile }) {
     } finally {
       setSearchLoading(false);
     }
-  }, [isReady, getEmbedding, supabase]);
+  }, [isReady, getEmbedding, supabase, programFilter]);
 
   useEffect(() => {
     const trimmed = searchQuery.trim();
@@ -163,7 +169,18 @@ export default function LibraryClient({ profile }) {
       clearTimeout(searchTimeout.current);
       searchTimeout.current = setTimeout(() => handleSearch(searchQuery, yearFilter), 200);
     }
-  }, [searchQuery, yearFilter]);
+  }, [searchQuery, yearFilter, programFilter]);
+
+  // Typing does not re-run a semantic search, so re-run it when the program changes.
+  const programRunRef = useRef(true);
+  useEffect(() => {
+    if (programRunRef.current) {
+      programRunRef.current = false;
+      return;
+    }
+    const q = searchQuery.trim();
+    if (q && q.split(/\s+/).length > 2) handleSearch(searchQuery, yearFilter);
+  }, [programFilter]);
 
   function onSearchSubmit(e) {
     e.preventDefault();
@@ -256,6 +273,7 @@ export default function LibraryClient({ profile }) {
   }
 
   const displayedAbstracts = abstracts.filter((a) => {
+    if (programFilter && a.program_id && a.program_id !== programFilter) return false;
     if (yearFilter && a.year !== parseInt(yearFilter)) return false;
     if (adderFilter) {
       const mine =
@@ -283,7 +301,7 @@ export default function LibraryClient({ profile }) {
           crumbs={["Library", "Browse"]}
           title="Capstone Library"
           icon={BookOpen}
-          subtitle="Browse completed BSIS capstone studies. Use the accession ID to request the physical document from the librarian."
+          subtitle="Browse completed capstone studies. Use the accession ID to request the physical document from the librarian."
         />
 
         <form onSubmit={onSearchSubmit} className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -294,6 +312,17 @@ export default function LibraryClient({ profile }) {
             placeholder="Search by title, author, topic, or accession ID..."
             className="flex-1 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-foreground bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-navy/30 placeholder:text-slate-400"
           />
+          <select
+            value={programFilter}
+            onChange={(e) => setProgramFilter(e.target.value)}
+            aria-label="Filter by program"
+            className="border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-foreground bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-navy/30"
+          >
+            <option value="">All Programs</option>
+            {programs.map((p) => (
+              <option key={p.id} value={p.id}>{p.code}</option>
+            ))}
+          </select>
           <select
             value={yearFilter}
             onChange={(e) => setYearFilter(e.target.value)}
@@ -501,9 +530,9 @@ export default function LibraryClient({ profile }) {
                         {abstract.accession_id}
                       </span>
                     )}
-                    {abstract.year && (
-                      <span className="text-xs text-slate-400 shrink-0">{abstract.year}</span>
-                    )}
+                    <span className="text-xs text-slate-400 shrink-0 ml-auto">
+                      {[programCodeById.get(abstract.program_id), abstract.year].filter(Boolean).join(" · ")}
+                    </span>
                   </div>
                   <h3 className="font-semibold text-foreground text-sm leading-snug mb-2 group-hover:text-navy transition-colors line-clamp-3">
                     {abstract.title}

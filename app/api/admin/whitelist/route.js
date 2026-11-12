@@ -45,7 +45,7 @@ export async function GET(request) {
      */
     let query = admin
       .from("student_whitelist")
-      .select("id, id_number, full_name, created_at", { count: "exact" })
+      .select("id, id_number, full_name, created_at, program:programs(code)", { count: "exact" })
       .order(column, { ascending })
       .order("id")
       .range(from, from + PAGE_SIZE - 1);
@@ -77,7 +77,8 @@ export async function GET(request) {
   }
 }
 
-// Accepts { rows: [{ id_number, full_name }, ...] }, already parsed and
+// Accepts { rows: [{ id_number, full_name, program }, ...] } (program is a code
+// such as BSIS), already parsed and
 // reviewed by the user in the /admin/whitelist preview step. Re-validates
 // server-side rather than trusting the client blindly, since this endpoint
 // can be called directly regardless of what the UI enforces.
@@ -117,6 +118,7 @@ export async function POST(request) {
     for (const row of rows) {
       const id_number = typeof row.id_number === "string" ? row.id_number.trim() : "";
       const full_name = typeof row.full_name === "string" ? normalizeName(row.full_name) : "";
+      const programCode = typeof row.program === "string" ? row.program.trim().toUpperCase() : "";
 
       if (!id_number) {
         return NextResponse.json(
@@ -142,6 +144,12 @@ export async function POST(request) {
           { status: 400 }
         );
       }
+      if (!programCode) {
+        return NextResponse.json(
+          { error: "One or more rows is missing a program. Fix the file and re-upload." },
+          { status: 400 }
+        );
+      }
       if (seen.has(id_number)) {
         return NextResponse.json(
           { error: `Student ID ${id_number} appears more than once in this upload. Fix the file and re-upload.` },
@@ -149,13 +157,31 @@ export async function POST(request) {
         );
       }
       seen.add(id_number);
-      cleaned.push({ id_number, full_name });
+      cleaned.push({ id_number, full_name, programCode });
     }
 
     const admin = createAdminClient();
+
+    // Program codes are resolved here, so a made-up code can never be saved.
+    const { data: programRows, error: programError } = await admin.from("programs").select("id, code");
+    if (programError) throw programError;
+    const programByCode = new Map((programRows ?? []).map((p) => [p.code.toUpperCase(), p.id]));
+
+    const toWrite = [];
+    for (const r of cleaned) {
+      const program_id = programByCode.get(r.programCode);
+      if (!program_id) {
+        return NextResponse.json(
+          { error: `Unknown program "${r.programCode}" for student ID ${r.id_number}. Fix the file and re-upload.` },
+          { status: 400 }
+        );
+      }
+      toWrite.push({ id_number: r.id_number, full_name: r.full_name, program_id });
+    }
+
     const { error } = await admin
       .from("student_whitelist")
-      .upsert(cleaned, { onConflict: "id_number" });
+      .upsert(toWrite, { onConflict: "id_number" });
 
     if (error) throw error;
 

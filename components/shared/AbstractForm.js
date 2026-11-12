@@ -13,12 +13,12 @@ import { Save, Loader2 } from "lucide-react";
  * from the title and abstract text on every save.
  */
 
-const EMPTY = { title: "", abstract_text: "", authors: "", year: "", accession_id: "", keywords: [] };
+const EMPTY = { title: "", abstract_text: "", authors: "", year: "", accession_id: "", keywords: [], program_id: "" };
 
 const inputClass =
   "w-full bg-background shadow-neo-inset border-none rounded-lg px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-navy/20 neo-transition";
 
-export default function AbstractForm({ mode = "add", abstractId, initialValues, onSaved }) {
+export default function AbstractForm({ mode = "add", abstractId, initialValues, onSaved, onProgramChange }) {
   const supabase = createClient();
   const { getEmbedding, isReady, isLoading: embeddingLoading } = useEmbedding();
   const isEdit = mode === "edit";
@@ -29,10 +29,21 @@ export default function AbstractForm({ mode = "add", abstractId, initialValues, 
   const [success, setSuccess] = useState(false);
   // Full distinct keyword list, powers the TagInput autocomplete dropdown.
   const [allTags, setAllTags] = useState([]);
+  const [programs, setPrograms] = useState([]);
 
   useEffect(() => {
     fetchAllTags(supabase).then(setAllTags);
+    supabase
+      .from("programs")
+      .select("id, code, name")
+      .order("name")
+      .then(({ data }) => setPrograms(data ?? []));
   }, []);
+
+  function handleProgramChange(e) {
+    handleChange(e);
+    onProgramChange?.(e.target.value);
+  }
 
   function handleChange(e) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -44,6 +55,10 @@ export default function AbstractForm({ mode = "add", abstractId, initialValues, 
     e.preventDefault();
     if (!form.title.trim() || !form.abstract_text.trim()) {
       setError("Title and abstract text are required.");
+      return;
+    }
+    if (!form.program_id) {
+      setError("Program is required.");
       return;
     }
     if (!isReady) {
@@ -67,6 +82,7 @@ export default function AbstractForm({ mode = "add", abstractId, initialValues, 
           year: form.year ? parseInt(form.year) : null,
           accession_id: form.accession_id.trim() || null,
           keywords: form.keywords,
+          program_id: form.program_id,
           embedding,
         }),
       });
@@ -78,7 +94,8 @@ export default function AbstractForm({ mode = "add", abstractId, initialValues, 
       if (isEdit) {
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
-        setForm(EMPTY);
+        // Keep the program selected, since a batch of abstracts is usually one program.
+        setForm({ ...EMPTY, program_id: form.program_id });
         setAllTags(await fetchAllTags(supabase));
       }
       onSaved?.(json.abstract);
@@ -125,6 +142,26 @@ export default function AbstractForm({ mode = "add", abstractId, initialValues, 
             className={inputClass}
             required
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">
+            Program <span className="text-red-500">*</span>
+          </label>
+          <select
+            name="program_id"
+            value={form.program_id}
+            onChange={handleProgramChange}
+            className={inputClass}
+            required
+          >
+            <option value="">Select a program</option>
+            {programs.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.code})
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

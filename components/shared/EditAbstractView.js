@@ -31,7 +31,7 @@ export default function EditAbstractView({ id, defaultRole, backHref, backLabel,
 
       const { data, error } = await supabase
         .from("abstracts")
-        .select("id, title, abstract_text, authors, year, accession_id, keywords, added_by")
+        .select("id, title, abstract_text, authors, year, accession_id, keywords, program_id, added_by")
         .eq("id", id)
         .single();
 
@@ -47,6 +47,7 @@ export default function EditAbstractView({ id, defaultRole, backHref, backLabel,
           year: data.year ? String(data.year) : "",
           accession_id: data.accession_id || "",
           keywords: data.keywords || [],
+          program_id: data.program_id || "",
         });
       }
       setLoading(false);

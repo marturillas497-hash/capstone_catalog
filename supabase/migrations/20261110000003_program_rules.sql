@@ -2,6 +2,12 @@
 -- APPLY ONLY AFTER the step 2 code is deployed. The code deployed before it
 -- inserts profiles without a program, and these rules would reject that.
 
+-- Profiles the older code created since step 1 have no program. Until other
+-- programs hold real data, those are all BSIS.
+update public.profiles
+   set program_id = (select id from public.programs where code = 'BSIS')
+ where role in ('student', 'capstone_adviser') and program_id is null;
+
 -- Students and advisers must have a program. Admin and staff must not.
 alter table public.profiles add constraint profiles_program_by_role check (
   (role in ('student', 'capstone_adviser') and program_id is not null)

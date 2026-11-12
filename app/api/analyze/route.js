@@ -187,6 +187,13 @@ export async function POST(request) {
   if (!isValidEmbedding(embedding)) {
     return NextResponse.json({ error: "Invalid embedding." }, { status: 400 });
   }
+  // A scan compares against the user's own program only.
+  if (!profile.program_id) {
+    return NextResponse.json(
+      { error: "Your account has no program assigned. Please contact the librarian." },
+      { status: 409 }
+    );
+  }
 
   try {
     const remaining = await getRemainingScans(user.id, profile.role);
@@ -201,6 +208,7 @@ export async function POST(request) {
       query_embedding: embedding,
       match_threshold: 0,
       match_count: 5,
+      p_program: profile.program_id,
     });
     if (matchError) throw matchError;
 
@@ -238,6 +246,7 @@ export async function POST(request) {
         risk_level: riskLevel,
         ai_recommendations: advisory.text,
         results_json: matches,
+        program_id: profile.program_id,
       })
       .select("id")
       .single();

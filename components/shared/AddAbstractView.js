@@ -21,6 +21,9 @@ export default function AddAbstractView({ defaultRole, editBase, mineOnly = fals
   const [recent, setRecent] = useState([]);
   const userIdRef = useRef(null);
 
+  // The program picked in the form, so the accession hint follows it.
+  const [programId, setProgramId] = useState("");
+
   async function refresh() {
     let recentQuery = supabase
       .from("abstracts")
@@ -29,15 +32,18 @@ export default function AddAbstractView({ defaultRole, editBase, mineOnly = fals
       .limit(5);
     if (mineOnly) recentQuery = recentQuery.eq("added_by", userIdRef.current);
 
-    const [{ data: recentRows }, { data: latest }] = await Promise.all([
-      recentQuery,
-      mineOnly
-        ? supabase.from("abstracts").select("accession_id").order("created_at", { ascending: false }).limit(1)
-        : Promise.resolve({ data: null }),
-    ]);
+    let latestQuery = supabase
+      .from("abstracts")
+      .select("accession_id")
+      .not("accession_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (programId) latestQuery = latestQuery.eq("program_id", programId);
+
+    const [{ data: recentRows }, { data: latest }] = await Promise.all([recentQuery, latestQuery]);
 
     setRecent(recentRows ?? []);
-    setLastAccession((mineOnly ? latest?.[0] : recentRows?.[0])?.accession_id || null);
+    setLastAccession(latest?.[0]?.accession_id || null);
   }
 
   useEffect(() => {
@@ -51,6 +57,10 @@ export default function AddAbstractView({ defaultRole, editBase, mineOnly = fals
     }
     init();
   }, []);
+
+  useEffect(() => {
+    if (userIdRef.current) refresh();
+  }, [programId]);
 
   return (
     <div className="min-h-screen bg-background md:flex">
@@ -66,11 +76,11 @@ export default function AddAbstractView({ defaultRole, editBase, mineOnly = fals
 
         {lastAccession && (
           <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700 mb-6">
-            Last accession ID on record, <span className="font-mono font-semibold">{lastAccession}</span>
+            Last accession ID on record{programId ? " for this program" : ""}, <span className="font-mono font-semibold">{lastAccession}</span>
           </div>
         )}
 
-        <AbstractForm mode="add" onSaved={refresh} />
+        <AbstractForm mode="add" onSaved={refresh} onProgramChange={setProgramId} />
 
         {recent.length > 0 && (
           <div>

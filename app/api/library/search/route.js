@@ -13,6 +13,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // This is different from /api/analyze which uses 0 to capture all matches
 // including weak GREEN ones for the full similarity report.
 const LIBRARY_SEARCH_THRESHOLD = 0.3;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEFAULT_MATCH_COUNT = 10;
 const MAX_MATCH_COUNT = 20;
 
@@ -33,6 +34,12 @@ export async function POST(request) {
     return NextResponse.json({ error: "Missing or invalid embedding." }, { status: 400 });
   }
 
+  // Optional program filter. Empty or missing searches every program.
+  const programId = typeof body?.programId === "string" && body.programId ? body.programId : null;
+  if (programId && !UUID_PATTERN.test(programId)) {
+    return NextResponse.json({ error: "Invalid program." }, { status: 400 });
+  }
+
   // matchCount comes from the client, so clamp it instead of trusting it.
   const requested = Number.parseInt(body?.matchCount, 10);
   const matchCount = Number.isInteger(requested)
@@ -45,6 +52,7 @@ export async function POST(request) {
       query_embedding: embedding,
       match_threshold: LIBRARY_SEARCH_THRESHOLD,
       match_count: matchCount,
+      p_program: programId,
     });
     if (error) throw error;
 
