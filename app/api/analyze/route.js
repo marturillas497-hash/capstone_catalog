@@ -5,6 +5,7 @@ import { isValidEmbedding } from "@/lib/embedding";
 import { getRiskLevel } from "@/lib/risk";
 import { buildFallbackAdvisoryText } from "@/lib/advisory";
 import { generateText } from "@/lib/ai";
+import { normalizeAiProfile } from "@/lib/aiProfile";
 
 // The AI call budget (34s) plus the DB work must fit inside this and the 45s client timeout.
 export const maxDuration = 60;
@@ -25,16 +26,19 @@ async function getRemainingScans(userId, role) {
 // Per-risk-level guidance injected into the prompt. Keeping this as data
 // rather than four full prompt variants is what makes the risk-aware
 // behavior maintainable: one sentence to edit per band, not four prompts.
-const VERDICT_GUIDANCE = {
-  RED: "State plainly that this topic overlaps too heavily with existing studies as it is currently scoped and needs a real change in function, beneficiary, or scope to stand apart. If the student still wants to pursue this exact idea after reading the analysis below, tell them directly that their next step is a conversation with their capstone adviser.",
-  ORANGE: "State that the topic overlaps strongly with existing studies and needs a specific pivot, such as a narrower function, a different beneficiary, or a different scope, to stand apart from what already exists.",
-  YELLOW: "State that the topic shares some themes with existing studies and would stand apart with one clear change: a more specific function, beneficiary, or record type not yet covered by similar studies.",
-  GREEN: "State that the topic is distinct from the existing library. Focus entirely on making the scope more concrete. Do not mention duplication or overlap, since none was found.",
-};
+// The wording that names what can change comes from the program's profile.
+function buildVerdictGuidance(ai) {
+  return {
+    RED: `State plainly that this topic overlaps too heavily with existing studies as it is currently scoped and needs a real change in ${ai.uncovered}, or in scope, to stand apart. If the student still wants to pursue this exact idea after reading the analysis below, tell them directly that their next step is a conversation with their capstone adviser.`,
+    ORANGE: `State that the topic overlaps strongly with existing studies and needs a specific pivot, such as a narrower or different ${ai.uncovered}, or a different scope, to stand apart from what already exists.`,
+    YELLOW: `State that the topic shares some themes with existing studies and would stand apart with one clear change: a more specific ${ai.uncovered} not yet covered by similar studies.`,
+    GREEN: "State that the topic is distinct from the existing library. Focus entirely on making the scope more concrete. Do not mention duplication or overlap, since none was found.",
+  };
+}
 
 const OVERLAP_GUIDANCE = {
   GREEN: "No meaningful overlap was found. Say this clearly in one or two sentences, never more than two. You may mention the closest study shown below only to note that you checked, not as a warning.",
-  DEFAULT: "Explain in plain, simple language how the student's proposal is similar to each study listed below, taking them in the order they are numbered above. Name each study by its exact title, accession ID, and similarity score. For each one, point to the specific features, users, or purposes the proposal shares with that study's abstract, and say plainly if the overlap is only superficial. Only describe what a study's abstract above actually says, never attribute features to it that the text does not mention. The list may hold just one study, which is normal: never comment on how many studies are listed or considered. Never use first person about your own choices. Maximum 5 sentences.",
+  DEFAULT: "Explain in plain, simple language how the student's proposal is similar to each study listed below, taking them in the order they are numbered above. Name each study by its exact title, accession ID, and similarity score. For each one, point to the specific features, users, methods, or purposes the proposal shares with that study's abstract, and say plainly if the overlap is only superficial. Only describe what a study's abstract above actually says, never attribute features to it that the text does not mention. The list may hold just one study, which is normal: never comment on how many studies are listed or considered. Never use first person about your own choices. Maximum 5 sentences.",
 };
 
 // Long enough to reach what a study actually builds, not just its background.
@@ -87,21 +91,24 @@ function sanitizeAdvisoryText(text) {
     .trim();
 }
 
-async function generateAdvisory(inputTitle, inputDescription, matches, riskLevel) {
+async function generateAdvisory(inputTitle, inputDescription, matches, riskLevel, program) {
   const AI_TIMEOUT_MS = 34000;
   try {
     const matchContext = buildMatchContext(matches, riskLevel);
     const overlapInstruction = OVERLAP_GUIDANCE[riskLevel] ?? OVERLAP_GUIDANCE.DEFAULT;
-    const verdictInstruction = VERDICT_GUIDANCE[riskLevel] ?? VERDICT_GUIDANCE.GREEN;
+    const guidance = buildVerdictGuidance(program.ai);
+    const verdictInstruction = guidance[riskLevel] ?? guidance.GREEN;
+    const ai = program.ai;
+    const libraryName = program.code ? `${program.code} library` : "institution's library";
 
-    const prompt = `You are an academic adviser for Bachelor of Science in Information Systems (BSIS) capstone projects at Makilala Institute of Science and Technology (MIST) in Makilala, North Cotabato, Philippines.
+    const prompt = `You are an academic adviser for ${ai.discipline} at Makilala Institute of Science and Technology (MIST) in Makilala, North Cotabato, Philippines.
 
-A student proposed this capstone topic:
+A student proposed this ${ai.topic}:
 
 Title: ${inputTitle}
 Abstract/Problem Statement: ${inputDescription}
 
-The system found a similarity risk level of ${riskLevel} based on these studies in the BSIS capstone library:
+The system found a similarity risk level of ${riskLevel} based on these studies in the ${libraryName}:
 
 ${matchContext}
 
@@ -111,9 +118,10 @@ RULES
 - Write in plain conversational English, like an adviser talking one-on-one to their advisee. No academic jargon or citation-style language. Contractions are fine. Address the student as you/your, never third person.
 - You give feedback, you do not make decisions. Never say or imply that a topic is approved, rejected, accepted, denied, cleared, or permitted. Only the student's capstone adviser and panel decide that. Describe what you found, not what the student is allowed to do.
 - VERDICT and CRITICAL ANALYSIS OF OVERLAP must be direct and confident, with no hedging (e.g. may, might, perhaps, could potentially, could consider). ALTERNATIVE RESEARCH DIRECTIONS follows its own tone rule below.
-- Silently identify the proposal's core system type in one short phrase (e.g. an inventory management system) and do not print it. Every title and direction must be that same core system type, applied differently as instructed per section.
-- Never name a real organization. Use a general type only (e.g. a small barangay office, a rural health unit). Every organization and scenario must be realistic for a small city or municipality in the Makilala or Kidapawan area of North Cotabato (no snow, no large-city-only infrastructure).
-- Keep the system's function specific even though the organization is generic: one defined problem, one defined output, one defined user group.
+- ${ai.focus}
+- Never name a real organization. Use a general type only (e.g. ${ai.org_examples}). Every organization and scenario must be realistic for a small city or municipality in the Makilala or Kidapawan area of North Cotabato (no snow, no large-city-only infrastructure).${ai.local ? ` ${ai.local}` : ""}
+- ${ai.specific}
+- Everything you suggest must be realistic for a small group of undergraduate students to finish within one academic year, using only what is available in the area.${ai.limits ? ` ${ai.limits}` : ""}
 
 VERDICT
 Exactly two sentences. ${verdictInstruction}
@@ -122,13 +130,13 @@ CRITICAL ANALYSIS OF OVERLAP
 ${overlapInstruction}
 
 PROPOSED UNIQUE TITLES
-Exactly 3 titles, one per line, numbered 1, 2, 3, with no label or description. Each is 12-15 words and describes one system with one clear purpose (never a feasibility study, analysis, assessment, or review). No title may reuse the wording of a matched study title above, not even in a different order: change the subject words, not just the phrasing.
-1. Same core system type, scoped to a narrower or different function or record type than the matched studies cover (never one their abstracts already name).
-2. Same core system type, applied to a different sector or beneficiary group.
-3. Same core system type, plus exactly one AI feature as its core differentiator that is genuinely useful to the system. Only one technology in this title.
+Exactly 3 titles, one per line, numbered 1, 2, 3, with no label or description. Each is 12-15 words and ${ai.title_form}. No title may reuse the wording of a matched study title above, not even in a different order: change the subject words, not just the phrasing.
+1. ${ai.titles[0]}
+2. ${ai.titles[1]}
+3. ${ai.titles[2]}
 
 ALTERNATIVE RESEARCH DIRECTIONS
-Exactly 3 directions, one per line, numbered 1, 2, 3 (structure only, so never refer to the numbers in the text). Each is a different project the student can take on, applied to a function, beneficiary, or record type the matched studies don't cover, and to a sector or beneficiary that none of the three titles above uses. Write them as open options, not orders or predictions. Start each one with a different natural opening, for instance by leading with the sector or the beneficiary. Never use "You will" or "You must". Maximum 2 sentences each, flowing prose.`;
+Exactly 3 directions, one per line, numbered 1, 2, 3 (structure only, so never refer to the numbers in the text). Each is a different ${ai.noun} the student can take on, applied to a ${ai.uncovered} the matched studies don't cover, and to a ${ai.varied} that none of the three titles above uses. Write them as open options, not orders or predictions. Start each one with a different natural opening, for instance by leading with the sector or the beneficiary. Never use "You will" or "You must". Maximum 2 sentences each, flowing prose.`;
 
     // One call, no retries. The provider module owns the timeout. Any failure lands in the catch below, which returns the fallback advisory.
     const text = await generateText(prompt, { timeoutMs: AI_TIMEOUT_MS });
@@ -216,7 +224,15 @@ export async function POST(request) {
     const topScore = matches.length > 0 ? matches[0].similarity : 0;
     const riskLevel = getRiskLevel(topScore);
 
-    const advisory = await generateAdvisory(title, description, matches, riskLevel);
+    // Program-specific advice settings. If the lookup fails, the generic profile is used.
+    const { data: programRow } = await createAdminClient()
+      .from("programs")
+      .select("code, ai_profile")
+      .eq("id", profile.program_id)
+      .single();
+    const program = { code: programRow?.code ?? "", ai: normalizeAiProfile(programRow?.ai_profile) };
+
+    const advisory = await generateAdvisory(title, description, matches, riskLevel, program);
 
     let studentId = null;
     let adviserId = null;
