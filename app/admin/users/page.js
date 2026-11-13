@@ -28,6 +28,8 @@ export default function UsersPage() {
   const [yearLevel, setYearLevel] = useState("");
   const [section, setSection] = useState("");
   const [adviserOptions, setAdviserOptions] = useState([]);
+  const [programs, setPrograms] = useState([]);
+  const [programId, setProgramId] = useState("");
 
   const [busyId, setBusyId] = useState(null);
   const [notice, setNotice] = useState({ open: false, title: "", message: "", warn: false });
@@ -42,21 +44,24 @@ export default function UsersPage() {
         const { data } = await supabase.from("profiles").select("role, full_name").eq("id", user.id).single();
         if (data) setProfile({ role: data.role, fullName: data.full_name });
       }
+      const { data: programRows } = await supabase.from("programs").select("id, code, name").order("name");
+      setPrograms(programRows ?? []);
     }
     init();
   }, []);
 
   useEffect(() => {
-    fetch("/api/admin/users/advisers?sort=name")
+    fetch(`/api/admin/users/advisers?sort=name${programId ? `&programId=${programId}` : ""}`)
       .then((r) => r.json())
       .then((json) => setAdviserOptions(json.rows || []))
       .catch(() => setAdviserOptions([]));
-  }, []);
+  }, [programId]);
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams({ q: query, sort, page: String(page) });
     if (status) params.set("status", status);
+    if (programId) params.set("programId", programId);
     if (tab === "students") {
       if (adviserId) params.set("adviserId", adviserId);
       if (yearLevel) params.set("yearLevel", yearLevel);
@@ -75,7 +80,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [tab, query, sort, status, adviserId, yearLevel, section, page]);
+  }, [tab, query, sort, status, adviserId, yearLevel, section, programId, page]);
 
   useEffect(() => {
     clearTimeout(searchTimeout.current);
@@ -86,7 +91,7 @@ export default function UsersPage() {
   // Reset to page 1 whenever a filter changes, not just the page control itself
   useEffect(() => {
     setPage(1);
-  }, [tab, query, sort, status, adviserId, yearLevel, section]);
+  }, [tab, query, sort, status, adviserId, yearLevel, section, programId]);
 
   function switchTab(next) {
     setTab(next);
@@ -150,6 +155,7 @@ export default function UsersPage() {
   const studentColumns = [
     { key: "id_number", label: "Student ID", render: (r) => <span className="font-mono">{r.id_number}</span> },
     { key: "status", label: "Status", render: (r) => <StatusPill status={r.status} /> },
+    { key: "program", label: "Program", render: (r) => r.program_code || "-" },
     { key: "year", label: "Year & Section", render: (r) => [r.year_level, r.section].filter(Boolean).join(" ") || "-" },
     { key: "adviser", label: "Adviser", render: (r) => r.adviser_name || "-" },
   ];
@@ -157,6 +163,7 @@ export default function UsersPage() {
   const adviserColumns = [
     { key: "email", label: "Email", render: (r) => r.email },
     { key: "status", label: "Status", render: (r) => <StatusPill status={r.status} /> },
+    { key: "program", label: "Program", render: (r) => r.program_code || "-" },
     { key: "added", label: "Added", render: (r) => new Date(r.created_at).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" }) },
   ];
 
@@ -259,6 +266,21 @@ export default function UsersPage() {
             <option value="">All statuses</option>
             <option value="active">Active</option>
             <option value="suspended">Suspended</option>
+          </select>
+
+          <select
+            value={programId}
+            onChange={(e) => {
+              setProgramId(e.target.value);
+              setAdviserId("");
+            }}
+            aria-label="Filter by program"
+            className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-foreground bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-navy/30"
+          >
+            <option value="">All programs</option>
+            {programs.map((p) => (
+              <option key={p.id} value={p.id}>{p.code}</option>
+            ))}
           </select>
 
           {tab === "students" && (

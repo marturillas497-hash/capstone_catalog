@@ -10,6 +10,7 @@ import { YEAR_LEVELS, SECTIONS } from "@/lib/constants";
 export default function ProfileClient({ profile }) {
   const [meta, setMeta] = useState(null);
   const [advisers, setAdvisers] = useState([]);
+  const [program, setProgram] = useState(null);
   const [yearLevel, setYearLevel] = useState("");
   const [section, setSection] = useState("");
   const [adviserId, setAdviserId] = useState("");
@@ -21,6 +22,17 @@ export default function ProfileClient({ profile }) {
 
   useEffect(() => {
     async function load() {
+      const supabase = createClient();
+
+      // Own program (students and advisers both have one).
+      const { data: own } = await supabase
+        .from("profiles")
+        .select("program_id, program:programs(code, name)")
+        .eq("id", profile.id)
+        .single();
+      const programId = own?.program_id ?? null;
+      setProgram(own?.program ?? null);
+
       // Advisers have no student_metadata-equivalent row. Instead, show
       // a count of their assigned students, reusing the same route the
       // "My Students" page already calls.
@@ -32,20 +44,23 @@ export default function ProfileClient({ profile }) {
         return;
       }
 
-      const supabase = createClient();
-
       const { data: m } = await supabase
         .from("student_metadata")
         .select("id_number, year_level, section, adviser_id")
         .eq("profile_id", profile.id)
         .single();
 
-      const { data: adviserList } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .eq("role", "capstone_adviser")
-        .eq("status", "active")
-        .order("full_name");
+      // Only advisers in the student's own program. The database enforces the
+      // same rule, so this filter is for convenience, not security.
+      const { data: adviserList } = programId
+        ? await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .eq("role", "capstone_adviser")
+            .eq("status", "active")
+            .eq("program_id", programId)
+            .order("full_name")
+        : { data: [] };
 
       setMeta(m);
       setYearLevel(m?.year_level ?? "");
@@ -161,6 +176,15 @@ export default function ProfileClient({ profile }) {
               </div>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">
+                Program
+              </label>
+              <div className={readonlyClass}>
+                {program ? `${program.name} (${program.code})` : "Not set"}
+              </div>
+            </div>
+
             <hr className="border-slate-100" />
 
             <div>
@@ -236,6 +260,15 @@ export default function ProfileClient({ profile }) {
               </div>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">
+                Program
+              </label>
+              <div className={readonlyClass}>
+                {program ? `${program.name} (${program.code})` : "Not set"}
+              </div>
+            </div>
+
             <hr className="border-slate-100" />
 
             {/* Editable fields */}
@@ -288,7 +321,7 @@ export default function ProfileClient({ profile }) {
                 ))}
               </select>
               <p className="text-xs text-slate-500 mt-1">
-                Changing your adviser updates visibility on all your past reports.
+                Only advisers in your program are listed. Changing your adviser updates visibility on all your past reports.
               </p>
             </div>
 

@@ -53,5 +53,8 @@ export async function POST(request) {
     fullName: maskName(rows[0].full_name),
     idNumber: rows[0].id_number,
     alreadyRegistered: rows[0].already_registered,
+    programId: rows[0].program_id ?? null,
+    programCode: rows[0].program_code ?? null,
+    programName: rows[0].program_name ?? null,
   });
 }

@@ -41,7 +41,7 @@ export default function ApprovalsPage() {
     setLoading(true);
     const { data } = await supabase
       .from("profiles")
-      .select("id, full_name, created_at, status")
+      .select("id, full_name, created_at, status, program:programs(code)")
       .eq("role", "capstone_adviser")
       .order("created_at", { ascending: true });
 
@@ -166,6 +166,9 @@ export default function ApprovalsPage() {
                 <div>
                   <p className="font-semibold text-slate-700">{adviser.full_name}</p>
                   <p className="text-xs text-slate-400 mt-0.5">
+                    {adviser.program?.code && (
+                      <span className="font-medium text-slate-500">{adviser.program.code} · </span>
+                    )}
                     Registered {formatDate(adviser.created_at)}
                   </p>
                 </div>

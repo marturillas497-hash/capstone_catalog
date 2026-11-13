@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request) {
   const body = await request.json();
-  const { role, fullName, email, password, studentId, adviserId, agreedToTerms } = body;
+  const { role, fullName, email, password, studentId, adviserId, programId, agreedToTerms } = body;
 
   if (!role || !fullName || !email || !password) {
     return NextResponse.json({ error: "All required fields must be filled in." }, { status: 400 });
@@ -28,10 +28,25 @@ export async function POST(request) {
 
   const admin = createAdminClient();
 
+  // A student's program comes from the registrar whitelist, never from the form.
+  // An adviser picks theirs on the form. Admin and staff never register here.
+  let programIdToSave = null;
+
+  if (role === "capstone_adviser") {
+    const { data: program } =
+      typeof programId === "string" && programId
+        ? await admin.from("programs").select("id").eq("id", programId).single()
+        : { data: null };
+    if (!program) {
+      return NextResponse.json({ error: "Please select your program." }, { status: 400 });
+    }
+    programIdToSave = program.id;
+  }
+
   if (role === "student") {
     const { data: whitelisted } = await admin
       .from("student_whitelist")
-      .select("id_number")
+      .select("id_number, program_id")
       .eq("id_number", studentId.trim())
       .single();
 
@@ -40,6 +55,32 @@ export async function POST(request) {
         { error: "Your student ID was not found in the system." },
         { status: 403 }
       );
+    }
+
+    if (!whitelisted.program_id) {
+      return NextResponse.json(
+        { error: "Your student ID has no program assigned yet. Please contact the librarian." },
+        { status: 422 }
+      );
+    }
+    programIdToSave = whitelisted.program_id;
+
+    // The adviser must be an active adviser in the student's own program.
+    if (adviserId) {
+      const { data: adviserProfile } = await admin
+        .from("profiles")
+        .select("role, status, program_id")
+        .eq("id", String(adviserId))
+        .single();
+
+      const validAdviser =
+        adviserProfile?.role === "capstone_adviser" &&
+        adviserProfile?.status === "active" &&
+        adviserProfile?.program_id === programIdToSave;
+
+      if (!validAdviser) {
+        return NextResponse.json({ error: "Invalid adviser selected." }, { status: 400 });
+      }
     }
 
     const { data: existing } = await admin
@@ -79,6 +120,7 @@ export async function POST(request) {
       full_name: fullName.trim(),
       role,
       status,
+      program_id: programIdToSave,
       terms_accepted_at: new Date().toISOString(),
     });
 

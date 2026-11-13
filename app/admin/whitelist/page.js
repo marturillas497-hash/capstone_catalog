@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Navbar from "@/components/shared/Navbar";
 import { UploadCloud, Search, User, AlertTriangle, CheckCircle2, RotateCcw, UserPlus, ChevronLeft, ChevronRight } from "lucide-react";
@@ -16,10 +16,12 @@ const STATUS_META = {
   invalid_name: { label: "Missing Name", className: "bg-red-50 text-red-600 border-red-200" },
   invalid_format: { label: "Invalid ID", className: "bg-red-50 text-red-600 border-red-200" },
   bad_name: { label: "Invalid Name", className: "bg-red-50 text-red-600 border-red-200" },
+  no_program: { label: "Missing Program", className: "bg-red-50 text-red-600 border-red-200" },
+  bad_program: { label: "Unknown Program", className: "bg-red-50 text-red-600 border-red-200" },
 };
 
 // Statuses that hard-block Confirm.
-const BLOCKING = ["duplicate", "invalid", "invalid_name", "invalid_format", "bad_name"];
+const BLOCKING = ["duplicate", "invalid", "invalid_name", "invalid_format", "bad_name", "no_program", "bad_program"];
 
 /*
  * Quote-aware CSV field split for a single line. Handles a name written
@@ -68,6 +70,7 @@ function parseCsv(text) {
   const header = parseCsvLine(lines[0].raw).map((h) => h.toLowerCase());
   const idCol = header.indexOf("id_number");
   const nameCol = header.indexOf("full_name");
+  const programCol = header.indexOf("program"); // optional
 
   if (idCol === -1 || nameCol === -1) {
     throw new Error("The CSV must include a header row with columns: id_number, full_name.");
@@ -94,6 +97,7 @@ function parseCsv(text) {
       rowNumber: lineNo,
       id_number: cols[idCol] || "",
       full_name: normalizeName(cols[nameCol]),
+      program: programCol === -1 ? "" : (cols[programCol] || "").trim(),
     });
   }
 
@@ -101,7 +105,7 @@ function parseCsv(text) {
   return rows;
 }
 
-function classifyRows(rows, existingMap) {
+function classifyRows(rows, existingMap, programByCode, defaultCode) {
   const counts = {};
   rows.forEach((r) => {
     if (r.id_number) counts[r.id_number] = (counts[r.id_number] || 0) + 1;
@@ -114,14 +118,23 @@ function classifyRows(rows, existingMap) {
     if (!r.full_name) return { ...r, status: "invalid_name" };
     if (!isValidName(r.full_name)) return { ...r, status: "bad_name" };
 
+    // A value in the program column wins, otherwise the default chosen for the upload.
+    const wanted = (r.program || defaultCode || "").toUpperCase();
+    if (!wanted) return { ...r, status: "no_program" };
+    const programCode = programByCode.get(wanted)?.code;
+    if (!programCode) return { ...r, status: "bad_program", programCode: wanted };
+
     const existing = existingMap.get(r.id_number);
-    if (!existing) return { ...r, status: "new" };
+    if (!existing) return { ...r, programCode, status: "new" };
 
     const nameMatches = normalizeName(existing.full_name) === r.full_name;
+    const programMatches = existing.program?.code === programCode;
     return {
       ...r,
-      status: nameMatches ? "unchanged" : "overwrite",
+      programCode,
+      status: nameMatches && programMatches ? "unchanged" : "overwrite",
       existingName: existing.full_name,
+      existingProgram: existing.program?.code ?? null,
       registered: existing.registered,
     };
   });
@@ -144,7 +157,12 @@ export default function WhitelistPage() {
   const [dragActive, setDragActive] = useState(false);
   const [checkingExisting, setCheckingExisting] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [previewRows, setPreviewRows] = useState(null);
+  const [programs, setPrograms] = useState([]);
+  // Program used for rows whose file has no program value.
+  const [defaultProgramId, setDefaultProgramId] = useState("");
+  // The parsed file and what already exists. The preview is derived from these,
+  // so choosing a default program re-checks the rows without a re-upload.
+  const [parsed, setParsed] = useState(null);
   const [parseError, setParseError] = useState(null);
   const [uploadResult, setUploadResult] = useState(null);
   const [error, setError] = useState(null);
@@ -160,9 +178,17 @@ export default function WhitelistPage() {
   const [addSuccess, setAddSuccess] = useState(null);
   const [addInfo, setAddInfo] = useState(null);
   const [addConflict, setAddConflict] = useState(null);
+  const [addProgramId, setAddProgramId] = useState("");
 
   const fileRef = useRef(null);
   const reqRef = useRef(0);
+
+  const programByCode = useMemo(() => new Map(programs.map((p) => [p.code.toUpperCase(), p])), [programs]);
+  const defaultCode = programs.find((p) => p.id === defaultProgramId)?.code ?? "";
+  const previewRows = useMemo(
+    () => (parsed ? classifyRows(parsed.rows, parsed.existingMap, programByCode, defaultCode) : null),
+    [parsed, programByCode, defaultCode]
+  );
 
   useEffect(() => {
     async function init() {
@@ -175,6 +201,8 @@ export default function WhitelistPage() {
           .single();
         if (data) setProfile({ role: data.role, fullName: data.full_name });
       }
+      const { data: programRows } = await supabase.from("programs").select("id, code, name").order("name");
+      setPrograms(programRows ?? []);
     }
     init();
   }, []);
@@ -222,7 +250,7 @@ export default function WhitelistPage() {
     setParseError(null);
     setUploadResult(null);
     setError(null);
-    setPreviewRows(null);
+    setParsed(null);
     setFlaggedReview(null);
 
     if (!file) return;
@@ -251,7 +279,7 @@ export default function WhitelistPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Check failed");
       const existingMap = new Map((json.existing || []).map((e) => [e.id_number, e]));
-      setPreviewRows(classifyRows(rows, existingMap));
+      setParsed({ rows, existingMap });
     } catch {
       setParseError("Could not check the file against the current whitelist. Try again.");
     } finally {
@@ -274,7 +302,7 @@ export default function WhitelistPage() {
   }
 
   function handleCancelPreview() {
-    setPreviewRows(null);
+    setParsed(null);
     setParseError(null);
   }
 
@@ -283,11 +311,11 @@ export default function WhitelistPage() {
     const overwriteRows = previewRows.filter((r) => r.status === "overwrite");
     const toSubmit = previewRows
       .filter((r) => r.status === "new" || r.status === "overwrite")
-      .map((r) => ({ id_number: r.id_number, full_name: r.full_name }));
+      .map((r) => ({ id_number: r.id_number, full_name: r.full_name, program: r.programCode }));
 
     if (toSubmit.length === 0) {
       setUploadResult("Nothing to update, every row already matches the current whitelist.");
-      setPreviewRows(null);
+      setParsed(null);
       return;
     }
 
@@ -307,11 +335,13 @@ export default function WhitelistPage() {
               id_number: r.id_number,
               oldName: r.existingName || "unnamed",
               newName: r.full_name || "unnamed",
+              oldProgram: r.existingProgram,
+              newProgram: r.programCode,
               registered: r.registered,
             }))
           : null
       );
-      setPreviewRows(null);
+      setParsed(null);
       await fetchEntries(debouncedQuery, sort, page);
     } catch (err) {
       setError(err.message);
@@ -329,6 +359,7 @@ export default function WhitelistPage() {
 
     const id_number = addId.trim();
     const full_name = normalizeName(addName);
+    const programCode = programs.find((p) => p.id === addProgramId)?.code ?? "";
 
     if (!id_number || !full_name) {
       setAddError("Both a student ID and full name are required.");
@@ -340,6 +371,10 @@ export default function WhitelistPage() {
     }
     if (!isValidName(full_name)) {
       setAddError(`Name must contain letters, no numbers, and be at most ${MAX_NAME_LENGTH} characters.`);
+      return;
+    }
+    if (!programCode) {
+      setAddError("Choose a program.");
       return;
     }
 
@@ -357,8 +392,8 @@ export default function WhitelistPage() {
       }
       const existing = (json.existing || [])[0];
 
-      if (existing && normalizeName(existing.full_name) === full_name) {
-        setAddInfo(`${id_number} is already whitelisted under this exact name. Nothing to change.`);
+      if (existing && normalizeName(existing.full_name) === full_name && existing.program_id === addProgramId) {
+        setAddInfo(`${id_number} is already whitelisted with this exact name and program. Nothing to change.`);
         return;
       }
 
@@ -368,11 +403,18 @@ export default function WhitelistPage() {
          * shown here as an explicit confirm step since a single entry has
          * no preview table.
          */
-        setAddConflict({ id_number, full_name, existingName: existing.full_name, registered: existing.registered });
+        setAddConflict({
+          id_number,
+          full_name,
+          programCode,
+          existingName: existing.full_name,
+          existingProgram: existing.program?.code ?? null,
+          registered: existing.registered,
+        });
         return;
       }
 
-      await submitManualAdd(id_number, full_name);
+      await submitManualAdd(id_number, full_name, programCode);
     } catch {
       setAddError("Could not reach the server. Try again.");
     } finally {
@@ -380,20 +422,20 @@ export default function WhitelistPage() {
     }
   }
 
-  async function submitManualAdd(id_number, full_name) {
+  async function submitManualAdd(id_number, full_name, programCode) {
     setAddBusy(true);
     try {
       const res = await fetch("/api/admin/whitelist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows: [{ id_number, full_name }] }),
+        body: JSON.stringify({ rows: [{ id_number, full_name, program: programCode }] }),
       });
       const json = await res.json();
       if (!res.ok) {
         setAddError(json.error || "Failed to add student.");
         return;
       }
-      setAddSuccess(`${full_name} (${id_number}) added to the whitelist.`);
+      setAddSuccess(`${full_name} (${id_number}) added to the whitelist (${programCode}).`);
       setAddId("");
       setAddName("");
       setAddConflict(null);
@@ -418,7 +460,7 @@ export default function WhitelistPage() {
   const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = rangeStart + entries.length - 1;
 
-  const counts = { new: 0, overwrite: 0, unchanged: 0, duplicate: 0, invalid: 0, invalid_name: 0, invalid_format: 0, bad_name: 0 };
+  const counts = { new: 0, overwrite: 0, unchanged: 0, duplicate: 0, invalid: 0, invalid_name: 0, invalid_format: 0, bad_name: 0, no_program: 0, bad_program: 0 };
   if (previewRows) previewRows.forEach((r) => counts[r.status]++);
   const blockingCount = BLOCKING.reduce((n, k) => n + counts[k], 0);
   const blocking = blockingCount > 0;
@@ -446,8 +488,25 @@ export default function WhitelistPage() {
           </h2>
           <p className="text-xs text-slate-500 mb-4">
             Required columns, <span className="font-mono">id_number</span> and <span className="font-mono">full_name</span>.
-            A header row is required. Nothing is saved until you review and confirm.
+            Optional column, <span className="font-mono">program</span> (a code such as BSIS). Rows without a program
+            value use the default program below. A header row is required. Nothing is saved until you review and confirm.
           </p>
+          <div className="flex items-center gap-2 mb-4">
+            <label htmlFor="default-program" className="text-xs font-medium text-slate-600">
+              Default program
+            </label>
+            <select
+              id="default-program"
+              value={defaultProgramId}
+              onChange={(e) => setDefaultProgramId(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-foreground bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-navy/30"
+            >
+              <option value="">None</option>
+              {programs.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+              ))}
+            </select>
+          </div>
 
           {uploadResult && (
             <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2.5 text-sm text-green-700 mb-4">
@@ -460,10 +519,10 @@ export default function WhitelistPage() {
                 <AlertTriangle className="w-4 h-4 text-orange-dark shrink-0 mt-0.5" strokeWidth={1.75} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-orange-dark mb-1">
-                    {flaggedReview.length} name{flaggedReview.length !== 1 ? "s" : ""} updated, flagged for review
+                    {flaggedReview.length} record{flaggedReview.length !== 1 ? "s" : ""} updated, flagged for review
                   </p>
                   <p className="text-xs text-slate-500 mb-2.5">
-                    These student IDs already existed under a different name, and the name from the file was applied.
+                    These student IDs already existed with a different name or program, and the values from the file were applied.
                     Check these against the registrar's record. If one looks wrong, records cannot be edited here,
                     get a corrected file from the registrar and upload it again.
                   </p>
@@ -474,6 +533,11 @@ export default function WhitelistPage() {
                         <span className="text-slate-400 truncate">{r.oldName}</span>
                         <span className="text-orange-dark">&rarr;</span>
                         <span className="text-orange-dark font-medium truncate">{r.newName}</span>
+                        {r.oldProgram !== r.newProgram && (
+                          <span className="text-slate-500">
+                            ({r.oldProgram ?? "no program"} <span className="text-orange-dark">&rarr;</span> {r.newProgram})
+                          </span>
+                        )}
                         {r.registered && (
                           <span
                             className="text-[10px] text-slate-500 border border-slate-200 rounded-full px-1.5 py-px"
@@ -562,9 +626,10 @@ export default function WhitelistPage() {
 
               <div className="bg-background shadow-neo neo-transition rounded-lg overflow-hidden mb-4 max-h-72 overflow-y-auto">
                 <div className="grid grid-cols-12 px-3 py-2 bg-slate-50 border-b border-slate-100 text-xs font-medium text-slate-500 uppercase tracking-wide sticky top-0">
-                  <span className="col-span-3">Row</span>
+                  <span className="col-span-2">Row</span>
                   <span className="col-span-3">Student ID</span>
                   <span className="col-span-3">Name</span>
+                  <span className="col-span-1">Prog.</span>
                   <span className="col-span-3 text-right">Status</span>
                 </div>
                 <div className="divide-y divide-slate-50">
@@ -576,12 +641,15 @@ export default function WhitelistPage() {
                         key={r.rowNumber}
                         className={`grid grid-cols-12 px-3 py-2 text-sm items-center ${isIssue ? "bg-red-50/50" : ""}`}
                       >
-                        <span className="col-span-3 text-slate-400 text-xs">Row {r.rowNumber}</span>
+                        <span className="col-span-2 text-slate-400 text-xs">Row {r.rowNumber}</span>
                         <span className="col-span-3 font-mono text-foreground truncate">
                           {r.id_number || <span className="text-red-400 italic">missing</span>}
                         </span>
                         <span className="col-span-3 text-slate-600 truncate">
                           {r.full_name || <span className="text-slate-300 italic">unnamed</span>}
+                        </span>
+                        <span className="col-span-1 text-xs text-slate-500 truncate">
+                          {r.programCode || r.program || ""}
                         </span>
                         <span className="col-span-3 text-right">
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${meta.className}`}>
@@ -601,8 +669,8 @@ export default function WhitelistPage() {
                 <div className="bg-orange/5 border border-orange/30 rounded-lg px-4 py-3 mb-4 flex gap-2.5">
                   <AlertTriangle className="w-4 h-4 text-orange-dark shrink-0 mt-0.5" strokeWidth={1.75} />
                   <p className="text-sm text-slate-600">
-                    Some updated names ({registeredOverwrites}) belong to students who already have an account.
-                    The whitelist name will change, but the name on their account will not.
+                    Some updated records ({registeredOverwrites}) belong to students who already have an account.
+                    The whitelist will change, but the name and program on their account will not.
                   </p>
                 </div>
               )}
@@ -676,20 +744,21 @@ export default function WhitelistPage() {
                 <p className="text-sm text-slate-700">
                   Student ID <span className="font-mono">{addConflict.id_number}</span> is
                   already whitelisted as{" "}
-                  <span className="font-medium">{addConflict.existingName}</span>. Adding it
-                  now will overwrite that name with{" "}
-                  <span className="font-medium">{addConflict.full_name}</span>.
-                  {addConflict.registered && " This student already has an account, which keeps its original name."}
+                  <span className="font-medium">{addConflict.existingName}</span>
+                  {addConflict.existingProgram ? ` (${addConflict.existingProgram})` : ""}. Adding it
+                  now will overwrite that record with{" "}
+                  <span className="font-medium">{addConflict.full_name}</span> ({addConflict.programCode}).
+                  {addConflict.registered && " This student already has an account, which keeps its original name and program."}
                 </p>
               </div>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => submitManualAdd(addConflict.id_number, addConflict.full_name)}
+                  onClick={() => submitManualAdd(addConflict.id_number, addConflict.full_name, addConflict.programCode)}
                   disabled={addBusy}
                   className="inline-flex items-center gap-1.5 bg-orange text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-orange-dark transition-colors disabled:opacity-50"
                 >
-                  {addBusy ? "Updating…" : "Overwrite Name"}
+                  {addBusy ? "Updating…" : "Overwrite Record"}
                 </button>
                 <button
                   type="button"
@@ -720,6 +789,17 @@ export default function WhitelistPage() {
                 placeholder="Full name"
                 className="flex-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-foreground bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-navy/30"
               />
+              <select
+                value={addProgramId}
+                onChange={(e) => setAddProgramId(e.target.value)}
+                aria-label="Program"
+                className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-foreground bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-navy/30"
+              >
+                <option value="">Program</option>
+                {programs.map((p) => (
+                  <option key={p.id} value={p.id}>{p.code}</option>
+                ))}
+              </select>
               <button
                 type="submit"
                 disabled={addBusy}
@@ -773,15 +853,17 @@ export default function WhitelistPage() {
         ) : (
           <div className="bg-background shadow-neo neo-transition rounded-xl overflow-hidden">
             <div className="grid grid-cols-12 px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs font-medium text-slate-500 uppercase tracking-wide">
-              <span className="col-span-4">Student ID</span>
-              <span className="col-span-5">Name</span>
+              <span className="col-span-3">Student ID</span>
+              <span className="col-span-4">Name</span>
+              <span className="col-span-2">Program</span>
               <span className="col-span-3 text-right">Added</span>
             </div>
             <div className="divide-y divide-slate-50">
               {entries.map((entry) => (
                 <div key={entry.id} className="grid grid-cols-12 px-4 py-3 text-sm items-center">
-                  <span className="col-span-4 font-mono text-foreground">{entry.id_number}</span>
-                  <span className="col-span-5 text-slate-600 truncate">{entry.full_name || <span className="text-slate-300 italic">unnamed</span>}</span>
+                  <span className="col-span-3 font-mono text-foreground">{entry.id_number}</span>
+                  <span className="col-span-4 text-slate-600 truncate">{entry.full_name || <span className="text-slate-300 italic">unnamed</span>}</span>
+                  <span className="col-span-2 text-xs text-slate-500">{entry.program?.code ?? "None"}</span>
                   <span className="col-span-3 text-xs text-slate-400 text-right">{formatDate(entry.created_at)}</span>
                 </div>
               ))}

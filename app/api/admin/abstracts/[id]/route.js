@@ -26,10 +26,13 @@ export async function PATCH(request, { params }) {
     if (profile.role === "staff") query = query.eq("added_by", user.id);
 
     const { data, error } = await query
-      .select("id, title, accession_id, year, authors, keywords, added_by, updated_by, updated_at")
+      .select("id, title, accession_id, year, authors, keywords, program_id, added_by, updated_by, updated_at")
       .maybeSingle();
 
     if (error) {
+      if (error.code === "23503") {
+        return NextResponse.json({ error: "Unknown program" }, { status: 400 });
+      }
       if (error.code === "23505") {
         const field = error.message.includes("title") ? "title" : "accession ID";
         return NextResponse.json({ error: `A record with this ${field} already exists` }, { status: 409 });

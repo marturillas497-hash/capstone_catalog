@@ -56,7 +56,10 @@ export async function POST(request) {
     const admin = createAdminClient();
     const results = await Promise.all(
       toChunks(safeIds).map((c) =>
-        admin.from("student_whitelist").select("id_number, full_name").in("id_number", c)
+        admin
+          .from("student_whitelist")
+          .select("id_number, full_name, program_id, program:programs(code)")
+          .in("id_number", c)
       )
     );
     const failed = results.find((r) => r.error);

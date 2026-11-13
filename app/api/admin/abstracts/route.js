@@ -19,10 +19,13 @@ export async function POST(request) {
     const { data, error } = await createAdminClient()
       .from("abstracts")
       .insert({ ...parsed.value, added_by: user.id })
-      .select("id, title, accession_id, year, authors, keywords, added_by, created_at")
+      .select("id, title, accession_id, year, authors, keywords, program_id, added_by, created_at")
       .single();
 
     if (error) {
+      if (error.code === "23503") {
+        return NextResponse.json({ error: "Unknown program" }, { status: 400 });
+      }
       if (error.code === "23505") {
         const field = error.message.includes("title") ? "title" : "accession ID";
         return NextResponse.json({ error: `A record with this ${field} already exists` }, { status: 409 });

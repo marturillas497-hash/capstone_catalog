@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAdminStats } from "@/lib/dashboardStats";
+import { isUuid } from "@/lib/constants";
 
 // GET /api/admin/stats
 // Risk breakdown across all similarity reports and account counts by status,
 // for the donut charts on /admin. Admin only, checked here because
 // middleware.js does not run on /api routes.
-export async function GET() {
+export async function GET(request) {
   try {
     const supabase = await createClient();
     const {
@@ -28,7 +29,8 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    return NextResponse.json(await getAdminStats());
+    const programParam = new URL(request.url).searchParams.get("programId");
+    return NextResponse.json(await getAdminStats(isUuid(programParam) ? programParam : null));
   } catch (err) {
     console.error("GET /api/admin/stats failed:", err.message);
     return NextResponse.json({ error: "Failed to load stats" }, { status: 500 });

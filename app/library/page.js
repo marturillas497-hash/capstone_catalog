@@ -1,35 +1,29 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { getAuthHeaders } from "@/lib/authHeaders";
 import LibraryClient from "./LibraryClient";
 
 /*
-  Profile/role come from middleware.js's forwarded headers when available,
-  falling back to a direct Supabase query only if those headers are missing.
+  The profile (role, name, program) and the program list are read here, so the
+  first render of the client already has them. Students and advisers start on
+  their own program. Admin and staff have no program and start on all programs.
 */
 export default async function LibraryPage() {
-  const forwarded = await getAuthHeaders();
+  const supabase = await createClient();
 
-  let role = forwarded?.role;
-  let fullName = forwarded?.fullName;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-  if (!role) {
-    const supabase = await createClient();
+  const [{ data: profile }, { data: programs }] = await Promise.all([
+    supabase.from("profiles").select("full_name, role, program_id").eq("id", user.id).single(),
+    supabase.from("programs").select("id, code, name").order("name"),
+  ]);
+  if (!profile) redirect("/login");
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) redirect("/login");
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name, role")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile) redirect("/login");
-
-    role = profile.role;
-    fullName = profile.full_name;
-  }
-
-  return <LibraryClient profile={{ role, fullName }} />;
+  return (
+    <LibraryClient
+      profile={{ role: profile.role, fullName: profile.full_name }}
+      programs={programs ?? []}
+      ownProgramId={profile.program_id ?? null}
+    />
+  );
 }

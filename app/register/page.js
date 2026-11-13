@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { STUDENT_ID_PATTERN } from "@/lib/constants";
 import { ArrowLeft, Eye, EyeOff, FileText, X } from "lucide-react";
 
 function capitalizeName(value) {
@@ -104,6 +105,11 @@ function IdentityConfirmModal({ match, onConfirm, onReject, onClose }) {
               <p className="text-slate-500 mt-1">
                 Student ID: <span className="text-foreground font-medium">{match.idNumber}</span>
               </p>
+              {match.programName && (
+                <p className="text-slate-500 mt-1">
+                  Program: <span className="text-foreground font-medium">{match.programName}</span>
+                </p>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -125,6 +131,11 @@ function IdentityConfirmModal({ match, onConfirm, onReject, onClose }) {
               <p className="text-slate-500 mt-1">
                 Student ID: <span className="text-foreground font-medium">{match.idNumber}</span>
               </p>
+              {match.programName && (
+                <p className="text-slate-500 mt-1">
+                  Program: <span className="text-foreground font-medium">{match.programName}</span>
+                </p>
+              )}
             </div>
             <p className="text-sm font-medium text-foreground mb-4">Is this you?</p>
             <div className="flex gap-3">
@@ -161,6 +172,8 @@ export default function RegisterPage() {
   const [studentId, setStudentId] = useState("");
   const [adviserId, setAdviserId] = useState("");
   const [advisers, setAdvisers] = useState([]);
+  const [programs, setPrograms] = useState([]);
+  const [programId, setProgramId] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -174,7 +187,30 @@ export default function RegisterPage() {
   const [idMatch, setIdMatch] = useState(null);
   const [verifiedId, setVerifiedId] = useState(null);
 
+  // Result of the last student ID lookup: { id, data }. It tells us the
+  // student's program (from the registrar whitelist), which decides which
+  // advisers are listed.
+  const [lookup, setLookup] = useState(null);
+  const studentProgram = lookup?.data?.found ? lookup.data : null;
+  const studentProgramId = studentProgram?.programId ?? null;
+
   useEffect(() => {
+    async function fetchPrograms() {
+      const supabase = createClient();
+      const { data } = await supabase.from("programs").select("id, code, name").order("name");
+      setPrograms(data ?? []);
+    }
+    fetchPrograms();
+  }, []);
+
+  // Advisers are listed only for the student's own program. The server and the
+  // database enforce the same rule, so this is a convenience, not security.
+  useEffect(() => {
+    setAdviserId("");
+    if (!studentProgramId) {
+      setAdvisers([]);
+      return;
+    }
     async function fetchAdvisers() {
       const supabase = createClient();
       const { data } = await supabase
@@ -182,17 +218,39 @@ export default function RegisterPage() {
         .select("id, full_name")
         .eq("role", "capstone_adviser")
         .eq("status", "active")
+        .eq("program_id", studentProgramId)
         .order("full_name");
       setAdvisers(data ?? []);
     }
     fetchAdvisers();
-  }, []);
+  }, [studentProgramId]);
 
   function handleStudentIdChange(value) {
     setStudentId(value);
     // Any edit to the ID invalidates a prior "yes, that's me" confirmation.
     if (verifiedId !== null) setVerifiedId(null);
     if (idMatch) setIdMatch(null);
+    if (lookup) setLookup(null);
+  }
+
+  // Looks the ID up once and reuses the result for the same ID. Returns null for
+  // an ID that is not all digits, { error } on a failed call, else the response.
+  async function lookupStudentId(rawId) {
+    const id = rawId.trim();
+    if (!STUDENT_ID_PATTERN.test(id)) return null;
+    if (lookup?.id === id) return lookup.data;
+
+    const res = await fetch("/api/auth/register/verify-id", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId: id }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { error: data.error ?? "Could not verify your student ID. Please try again." };
+    }
+    setLookup({ id, data });
+    return data;
   }
 
   async function submitRegistration() {
@@ -208,6 +266,7 @@ export default function RegisterPage() {
         password,
         studentId: role === "student" ? studentId : undefined,
         adviserId: role === "student" && adviserId ? adviserId : undefined,
+        programId: role === "capstone_adviser" ? programId : undefined,
         agreedToTerms,
       }),
     });
@@ -244,6 +303,11 @@ export default function RegisterPage() {
       return;
     }
 
+    if (role === "capstone_adviser" && !programId) {
+      setError("Please select your program.");
+      return;
+    }
+
     // Capstone advisers have no whitelist ID to confirm — proceed directly.
     if (role !== "student") {
       submitRegistration();
@@ -260,15 +324,15 @@ export default function RegisterPage() {
     // creating the account immediately.
     setCheckingId(true);
     try {
-      const res = await fetch("/api/auth/register/verify-id", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: studentId.trim() }),
-      });
-      const data = await res.json();
+      const data = await lookupStudentId(studentId);
 
-      if (!res.ok) {
-        setError(data.error ?? "Could not verify your student ID. Please try again.");
+      if (!data) {
+        setError("A valid student ID is required.");
+        return;
+      }
+
+      if (data.error) {
+        setError(data.error);
         return;
       }
 
@@ -292,6 +356,7 @@ export default function RegisterPage() {
   function handleRejectIdentity() {
     setIdMatch(null);
     setStudentId("");
+    setLookup(null);
   }
 
   const inputClass =
@@ -470,6 +535,9 @@ export default function RegisterPage() {
                         type="text"
                         value={studentId}
                         onChange={(e) => handleStudentIdChange(e.target.value)}
+                        onBlur={() => {
+                          if (studentId.trim()) lookupStudentId(studentId).catch(() => {});
+                        }}
                         required
                         placeholder="e.g. 2316075"
                         className={inputClass}
@@ -486,6 +554,7 @@ export default function RegisterPage() {
                       <select
                         value={adviserId}
                         onChange={(e) => setAdviserId(e.target.value)}
+                        disabled={!studentProgramId}
                         className={inputClass}
                       >
                         <option value="">No adviser selected</option>
@@ -495,8 +564,38 @@ export default function RegisterPage() {
                           </option>
                         ))}
                       </select>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {studentProgramId
+                          ? `Showing advisers in your program (${studentProgram.programCode}).`
+                          : "Enter your student ID first to see advisers in your program."}
+                      </p>
                     </div>
                   </>
+                )}
+
+                {/* Adviser-only fields */}
+                {role === "capstone_adviser" && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">
+                      Program
+                    </label>
+                    <select
+                      value={programId}
+                      onChange={(e) => setProgramId(e.target.value)}
+                      required
+                      className={inputClass}
+                    >
+                      <option value="">Select your program</option>
+                      {programs.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.code})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Students in this program will be able to choose you as their adviser.
+                    </p>
+                  </div>
                 )}
 
                 {/* Terms and Conditions checkbox */}
