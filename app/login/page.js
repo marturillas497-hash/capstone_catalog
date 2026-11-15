@@ -21,7 +21,7 @@ const STATUS_MESSAGES = {
 const FEATURES = [
   { icon: ScanLine, label: "Semantic Similarity Detection" },
   { icon: Lightbulb, label: "AI Advisory" },
-  { icon: BookOpen, label: "BSIS Abstract Catalog" },
+  { icon: BookOpen, label: "Research Abstract Catalog" },
 ];
 
 // Background photo lives at /public/bg_login.jpg. Tint overlay keeps the
@@ -123,18 +123,12 @@ function LoginForm() {
                 alt="MIST"
                 className="h-10 w-10 object-contain"
               />
-              <div className="w-px h-8 bg-white/15" />
-              <img
-                src="/is-logo.png"
-                alt="Information Systems"
-                className="h-10 w-10 object-contain"
-              />
             </div>
             <p className="text-white text-sm font-medium leading-snug">
               Makilala Institute of Science and Technology
             </p>
             <p className="text-orange text-xs leading-snug mt-0.5">
-              Bachelor of Science in Information Systems
+              Check your research topic before you commit
             </p>
           </div>
         </div>
@@ -157,18 +151,12 @@ function LoginForm() {
                   alt="MIST"
                   className="h-20 w-20 object-contain"
                 />
-                <div className="w-px h-12 bg-white/15" />
-                <img
-                  src="/is-logo.png"
-                  alt="Information Systems"
-                  className="h-20 w-20 object-contain"
-                />
               </div>
               <p className="text-white/80 text-sm font-medium leading-snug">
                 Makilala Institute of Science and Technology
               </p>
               <p className="text-orange text-xs leading-snug mt-0.5">
-                Bachelor of Science in Information Systems
+                Check your research topic before you commit
               </p>
             </div>
 
@@ -187,8 +175,8 @@ function LoginForm() {
 
             {/* Description */}
             <p className="text-white/60 text-sm leading-relaxed max-w-sm mx-auto text-center">
-              Validate your proposed capstone topics against the BSIS institutional
-              library through semantic similarity detection and AI-powered advisory
+              Check your proposed research topic against the institution's completed
+              studies through semantic similarity detection and AI-powered advisory
               feedback.
             </p>
           </div>
@@ -199,11 +187,11 @@ function LoginForm() {
           <div className="w-full max-w-sm animate-page-ease-in">
 
             <h1 className="font-display !font-bold text-navy leading-tight mb-1">
-              <span className="block text-3xl">MIST - BSIS</span>
-              <span className="block text-3xl">Capstone Library</span>
+              <span className="block text-3xl">MIST</span>
+              <span className="block text-3xl">Topic Compass</span>
             </h1>
             <p className="text-sm text-slate-600 mb-8">
-              Sign in to your Capstone Library Account
+              Sign in to your Topic Compass account
             </p>
 
             {(inlineStatus || statusMessage) && (

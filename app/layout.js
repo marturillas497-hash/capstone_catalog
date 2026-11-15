@@ -2,9 +2,9 @@ import "./globals.css";
 import { EmbeddingProvider } from "@/components/shared/EmbeddingProvider";
 
 export const metadata = {
-  title: "Capstone Library | MIST BSIS",
+  title: "MIST Topic Compass",
   description:
-    "Web-Based Capstone Studies with Similarity Detection and AI Recommendation — Makilala Institute of Science and Technology",
+    "Check your research topic against the completed studies of Makilala Institute of Science and Technology, with similarity detection and AI advice.",
 };
 
 export default function RootLayout({ children }) {

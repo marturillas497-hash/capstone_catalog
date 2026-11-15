@@ -7,7 +7,7 @@ export default function AdminArchivePage() {
     <AddAbstractView
       defaultRole="admin"
       editBase="/admin/archive"
-      subtitle="Add a completed BSIS capstone study to the institutional library."
+      subtitle="Add a completed study to the institutional library."
     />
   );
 }

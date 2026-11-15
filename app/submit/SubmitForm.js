@@ -18,7 +18,7 @@ const DAILY_LIMIT = 5;
 // actually resolves rather than guessing when the AI finishes.
 const STAGES = [
   { key: "embedding", label: "Generating embedding…", description: "Converting your title and abstract into a semantic fingerprint." },
-  { key: "matching", label: "Comparing against the capstone library…", description: "Checking your proposed topic against existing BSIS studies." },
+  { key: "matching", label: "Comparing against your program's library…", description: "Checking your proposed topic against existing studies in your program." },
   { key: "advisory", label: "Generating AI advisory…", description: "The AI is drafting structured feedback based on your closest matches." },
 ];
 
@@ -208,7 +208,7 @@ export default function SubmitForm({ profile, userId }) {
         <PageHeader
           variant="stats"
           title="New Similarity Scan"
-          subtitle="Enter your proposed capstone title and abstract to check for conceptual overlap with existing BSIS studies."
+          subtitle="Enter your proposed research title and description to check for overlap with existing studies in your program."
           icon={ScanLine}
           iconBg="bg-navy"
         />
@@ -287,7 +287,7 @@ export default function SubmitForm({ profile, userId }) {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">
-                  Proposed Capstone Title
+                  Proposed Title
                 </label>
                 <input
                   type="text"

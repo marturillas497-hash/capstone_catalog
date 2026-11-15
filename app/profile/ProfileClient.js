@@ -166,7 +166,7 @@ export default function ProfileClient({ profile }) {
                 <label className="block text-sm font-medium text-slate-600 mb-1">
                   Role
                 </label>
-                <div className={readonlyClass}>Capstone Adviser</div>
+                <div className={readonlyClass}>Adviser</div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-600 mb-1">
@@ -308,7 +308,7 @@ export default function ProfileClient({ profile }) {
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">
-                Capstone Adviser
+                Adviser
               </label>
               <select
                 value={adviserId}

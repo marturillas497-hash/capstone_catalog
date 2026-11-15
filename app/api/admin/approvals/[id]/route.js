@@ -41,7 +41,7 @@ export async function PATCH(request, { params }) {
     }
 
     if (target.role !== "capstone_adviser") {
-      return NextResponse.json({ error: "Target is not a capstone adviser" }, { status: 400 });
+      return NextResponse.json({ error: "Target is not an adviser" }, { status: 400 });
     }
 
     const newStatus = action === "approved" ? "active" : "rejected";

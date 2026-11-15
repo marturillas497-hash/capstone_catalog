@@ -29,7 +29,7 @@ async function getRemainingScans(userId, role) {
 // The wording that names what can change comes from the program's profile.
 function buildVerdictGuidance(ai) {
   return {
-    RED: `State plainly that this topic overlaps too heavily with existing studies as it is currently scoped and needs a real change in ${ai.uncovered}, or in scope, to stand apart. If the student still wants to pursue this exact idea after reading the analysis below, tell them directly that their next step is a conversation with their capstone adviser.`,
+    RED: `State plainly that this topic overlaps too heavily with existing studies as it is currently scoped and needs a real change in ${ai.uncovered}, or in scope, to stand apart. If the student still wants to pursue this exact idea after reading the analysis below, tell them directly that their next step is a conversation with their adviser.`,
     ORANGE: `State that the topic overlaps strongly with existing studies and needs a specific pivot, such as a narrower or different ${ai.uncovered}, or a different scope, to stand apart from what already exists.`,
     YELLOW: `State that the topic shares some themes with existing studies and would stand apart with one clear change: a more specific ${ai.uncovered} not yet covered by similar studies.`,
     GREEN: "State that the topic is distinct from the existing library. Focus entirely on making the scope more concrete. Do not mention duplication or overlap, since none was found.",
@@ -116,7 +116,7 @@ RULES
 - Use exactly these four uppercase headings, in this order: VERDICT, CRITICAL ANALYSIS OF OVERLAP, PROPOSED UNIQUE TITLES, ALTERNATIVE RESEARCH DIRECTIONS.
 - Plain text only: no markdown, bullets, section numbers, greeting, or sign-off.
 - Write in plain conversational English, like an adviser talking one-on-one to their advisee. No academic jargon or citation-style language. Contractions are fine. Address the student as you/your, never third person.
-- You give feedback, you do not make decisions. Never say or imply that a topic is approved, rejected, accepted, denied, cleared, or permitted. Only the student's capstone adviser and panel decide that. Describe what you found, not what the student is allowed to do.
+- You give feedback, you do not make decisions. Never say or imply that a topic is approved, rejected, accepted, denied, cleared, or permitted. Only the student's adviser and panel decide that. Describe what you found, not what the student is allowed to do.
 - VERDICT and CRITICAL ANALYSIS OF OVERLAP must be direct and confident, with no hedging (e.g. may, might, perhaps, could potentially, could consider). ALTERNATIVE RESEARCH DIRECTIONS follows its own tone rule below.
 - ${ai.focus}
 - Never name a real organization. Use a general type only (e.g. ${ai.org_examples}). Every organization and scenario must be realistic for a small city or municipality in the Makilala or Kidapawan area of North Cotabato (no snow, no large-city-only infrastructure).${ai.local ? ` ${ai.local}` : ""}
@@ -148,7 +148,7 @@ Exactly 3 directions, one per line, numbered 1, 2, 3 (structure only, so never r
 }
 
 const FALLBACK_MESSAGES = {
-  RED: "This topic scores very high on similarity, which usually means one or more studies below already cover close to the same idea. Review the matches and consider a real pivot in function or beneficiary. If you still want to pursue this exact idea after reviewing them, your next step is talking directly with your capstone adviser.",
+  RED: "This topic scores very high on similarity, which usually means one or more studies below already cover close to the same idea. Review the matches and consider a real pivot in function or beneficiary. If you still want to pursue this exact idea after reviewing them, your next step is talking directly with your adviser.",
   ORANGE: "This topic overlaps strongly with existing studies in the library. Review the matches below and look for a narrower function or a different beneficiary group to set your proposal apart.",
   YELLOW: "This topic shares some themes with existing studies but isn't a clear duplicate. Review the matches below and see what specific angle would make your proposal stand fully on its own.",
   GREEN: "This topic doesn't show significant overlap with existing studies. The matches below are shown for reference, not as a warning.",

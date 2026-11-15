@@ -132,13 +132,13 @@ export default function AbstractForm({ mode = "add", abstractId, initialValues, 
       >
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1.5">
-            Capstone Title <span className="text-red-500">*</span>
+            Title <span className="text-red-500">*</span>
           </label>
           <input
             name="title"
             value={form.title}
             onChange={handleChange}
-            placeholder={isEdit ? undefined : "Full capstone project title"}
+            placeholder={isEdit ? undefined : "Full title of the study"}
             className={inputClass}
             required
           />

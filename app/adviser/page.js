@@ -47,7 +47,7 @@ export default async function AdviserPage() {
           variant="banner"
           eyebrow="Adviser Portal"
           title="My Students"
-          subtitle="Students who have assigned you as their capstone adviser."
+          subtitle="Students who have assigned you as their adviser."
         />
 
         <div className="flex flex-wrap gap-4 mb-6">

@@ -50,7 +50,7 @@ export default async function DashboardPage() {
     meta?.year_level && (meta?.section ? `${meta.year_level}, Section ${meta.section}` : meta.year_level),
   ]
     .filter(Boolean)
-    .join(" · ") || "BSIS Student";
+    .join(" · ") || "Student";
 
   return (
     <div className="min-h-screen bg-background md:flex">

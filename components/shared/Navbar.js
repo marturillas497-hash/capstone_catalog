@@ -82,7 +82,7 @@ function groupLinks(links) {
 
 const ROLE_LABELS = {
   student: "Student",
-  capstone_adviser: "Capstone Adviser",
+  capstone_adviser: "Adviser",
   admin: "Administrator",
   staff: "Library Staff",
 };
@@ -181,7 +181,7 @@ export default function Navbar({ role, fullName }) {
                 className="rounded-full"
               />
               <span className="font-display text-lg text-white leading-none">
-                Capstone Library
+                Topic Compass
               </span>
             </a>
 
@@ -267,17 +267,9 @@ export default function Navbar({ role, fullName }) {
               height={30}
               className="rounded-full border-2 border-gold"
             />
-            <div className="w-px h-5 bg-white/20" />
-            <Image
-              src="/is-logo.png"
-              alt="Information Systems"
-              width={30}
-              height={30}
-              className="rounded-full border-2 border-orange"
-            />
           </div>
-          <p className="font-display text-white text-[15px] leading-tight">Capstone Library</p>
-          <p className="text-orange-light text-[11px] font-semibold mt-0.5">MIST · BSIS</p>
+          <p className="font-display text-white text-[15px] leading-tight">Topic Compass</p>
+          <p className="text-orange-light text-[11px] font-semibold mt-0.5">MIST</p>
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-3">
@@ -348,7 +340,7 @@ export default function Navbar({ role, fullName }) {
               <h2 className="font-display text-xl text-navy">Sign Out</h2>
             </div>
             <p className="text-sm text-slate-600 mb-6">
-              Are you sure you want to sign out of Capstone Library?
+              Are you sure you want to sign out of Topic Compass?
             </p>
             <div className="flex gap-3">
               <button

@@ -16,7 +16,7 @@ function capitalizeName(value) {
 
 const ROLE_OPTIONS = [
   { value: "student", label: "Student" },
-  { value: "capstone_adviser", label: "Capstone Adviser" },
+  { value: "capstone_adviser", label: "Adviser" },
 ];
 
 function TermsModal({ onClose }) {
@@ -39,8 +39,8 @@ function TermsModal({ onClose }) {
         <div className="overflow-y-auto px-6 py-5 text-sm text-slate-600 space-y-4">
 
           <p>
-            By creating an account on Capstone Library, you agree to use this
-            system solely for academic purposes related to the BSIS program at
+            By creating an account on MIST Topic Compass, you agree to use this
+            system solely for academic purposes related to your program at
             Makilala Institute of Science and Technology (MIST).
           </p>
           <p>
@@ -54,13 +54,13 @@ function TermsModal({ onClose }) {
             Similarity scan results and AI-generated advisory content are
             provided for informational purposes only. They do not constitute
             academic evaluation or formal assessment. All final decisions
-            regarding capstone topic selection remain with the student, their
+            regarding research topic selection remain with the student, their
             assigned adviser, and the institution.
           </p>
           <p>
             Certain activities within the system, such as the similarity
             checks you submit, are recorded to help maintain the integrity
-            and quality of the capstone library.
+            and quality of the library.
           </p>
           <p>
             These terms are subject to change. Continued use of the system
@@ -394,7 +394,7 @@ export default function RegisterPage() {
           <div className="mb-6">
             <h1 className="font-display text-3xl text-navy mb-1">Create an account</h1>
             <p className="text-sm text-slate-600">
-              MIST, Bachelor of Science in Information Systems
+              Makilala Institute of Science and Technology
             </p>
           </div>
 
@@ -546,7 +546,7 @@ export default function RegisterPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-1">
-                        Capstone Adviser{" "}
+                        Adviser{" "}
                         <span className="text-slate-500 font-normal">
                           (optional, you can set this later)
                         </span>

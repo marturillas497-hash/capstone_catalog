@@ -117,7 +117,7 @@ export default function AnalyticsPage() {
         <PageHeader
           variant="stats"
           title="Analytics"
-          subtitle="Abstract view activity across the capstone library."
+          subtitle="Abstract view activity across the library."
           icon={TrendingUp}
           stats={[
             { label: "Total views", value: loading ? "..." : stats.totalViews },

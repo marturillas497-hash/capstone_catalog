@@ -30,7 +30,7 @@ export default async function AdviserStudentsPage() {
           crumbs={["My Students", "All students"]}
           title="All Students"
           icon={Users}
-          subtitle="Search every student who has assigned you as their capstone adviser."
+          subtitle="Search every student who has assigned you as their adviser."
           badge={
             students.length > 0 && (
               <span className="text-sm font-semibold text-white bg-navy rounded-full px-2.5 py-0.5">

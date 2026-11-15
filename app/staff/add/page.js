@@ -8,7 +8,7 @@ export default function StaffAddPage() {
       defaultRole="staff"
       editBase="/staff/abstracts"
       mineOnly
-      subtitle="Add a completed BSIS capstone study. Your name is recorded on every abstract you add."
+      subtitle="Add a completed study. Your name is recorded on every abstract you add."
     />
   );
 }

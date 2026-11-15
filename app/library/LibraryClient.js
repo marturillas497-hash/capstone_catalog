@@ -18,7 +18,7 @@ const YEAR_OPTIONS = Array.from({ length: 20 }, (_, i) => new Date().getFullYear
 // staged rather than a literal server-driven readout.
 const SEARCH_STAGES = [
   { key: "embedding", label: "Generating embedding…", description: "Converting your query into a semantic fingerprint." },
-  { key: "searching", label: "Searching the library…", description: "Comparing against the capstone archive." },
+  { key: "searching", label: "Searching the library…", description: "Comparing against the archive." },
 ];
 
 const SEARCH_TIMEOUT_MS = 45000;
@@ -299,9 +299,9 @@ export default function LibraryClient({ profile, programs = [], ownProgramId = n
         <PageHeader
           variant="stats"
           crumbs={["Library", "Browse"]}
-          title="Capstone Library"
+          title="Study Library"
           icon={BookOpen}
-          subtitle="Browse completed capstone studies. Use the accession ID to request the physical document from the librarian."
+          subtitle="Browse completed studies. Use the accession ID to request the physical document from the librarian."
         />
 
         <form onSubmit={onSearchSubmit} className="flex flex-col sm:flex-row gap-3 mb-4">

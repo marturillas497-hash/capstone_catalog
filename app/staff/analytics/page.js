@@ -34,7 +34,7 @@ export default async function StaffAnalyticsPage({ searchParams }) {
         <PageHeader
           variant="stats"
           title="Analytics"
-          subtitle="Which abstracts students read most in the capstone library."
+          subtitle="Which abstracts students read most in the library."
           icon={TrendingUp}
           stats={[
             { label: "Total views", value: total },
