@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/"];
 
+// Holds the user's program code so the page can pick its color theme.
+// Cosmetic only, never used for access decisions.
+const THEME_COOKIE = "tc-program";
+const THEME_COOKIE_OPTIONS = { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 * 30 };
+
 const HOME = {
   admin: "/admin",
   capstone_adviser: "/adviser",
@@ -80,7 +85,11 @@ export async function middleware(request) {
 
   // Public paths — redirect to role home if already logged in, else pass through
   if (PUBLIC_PATHS.includes(pathname)) {
-    if (!user) return pathname === "/" ? toLogin(request) : response;
+    if (!user) {
+      if (pathname === "/") return toLogin(request);
+      response.cookies.set(THEME_COOKIE, "", { path: "/", maxAge: 0 });
+      return response;
+    }
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -100,13 +109,14 @@ export async function middleware(request) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role, status")
+    .select("full_name, role, status, program:programs(code)")
     .eq("id", user.id)
     .single();
 
   if (!profile) return toLogin(request);
 
   const { role, status, full_name } = profile;
+  const programCode = profile.program?.code ?? "";
 
   // Pending adviser — block and send back to login
   if (role === "capstone_adviser" && status === "pending") {
@@ -170,6 +180,10 @@ export async function middleware(request) {
   pendingCookies.forEach(({ name, value, options }) =>
     response.cookies.set(name, value, options)
   );
+
+  // Admin and staff have no program, so they keep the default MIST colors.
+  if (programCode) response.cookies.set(THEME_COOKIE, programCode, THEME_COOKIE_OPTIONS);
+  else response.cookies.set(THEME_COOKIE, "", { path: "/", maxAge: 0 });
 
   return response;
 }

@@ -252,7 +252,7 @@ export default function SubmitForm({ profile, userId }) {
                   <p className="text-xs text-slate-500">Scans left today</p>
                   <p
                     className={`font-display text-3xl leading-none mt-1
-                      ${scansLeft === 0 ? "text-red-500" : scansLeft === 1 ? "text-orange" : "text-navy"}`}
+                      ${scansLeft === 0 ? "text-red-500" : scansLeft === 1 ? "text-accent-ink" : "text-navy"}`}
                   >
                     {scansLeft}
                     <span className="text-sm text-slate-400 font-sans"> / {DAILY_LIMIT}</span>
@@ -263,7 +263,7 @@ export default function SubmitForm({ profile, userId }) {
                     ${scansLeft === 0 ? "bg-red-50" : scansLeft === 1 ? "bg-orange/10" : "bg-navy/5"}`}
                 >
                   <Gauge
-                    className={`w-4 h-4 ${scansLeft === 0 ? "text-red-500" : scansLeft === 1 ? "text-orange" : "text-navy"}`}
+                    className={`w-4 h-4 ${scansLeft === 0 ? "text-red-500" : scansLeft === 1 ? "text-accent-ink" : "text-navy"}`}
                     strokeWidth={1.75}
                   />
                 </div>
@@ -343,7 +343,7 @@ export default function SubmitForm({ profile, userId }) {
           />
           <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center animate-modal-in">
             <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-orange/10 flex items-center justify-center">
-              <Clock className="w-7 h-7 text-orange" strokeWidth={1.75} />
+              <Clock className="w-7 h-7 text-accent-ink" strokeWidth={1.75} />
             </div>
             <h2 className="font-display text-xl text-navy mb-2">Daily Scan Limit Reached</h2>
             <p className="text-sm text-slate-600 mb-1">

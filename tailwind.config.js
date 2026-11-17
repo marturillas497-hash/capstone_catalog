@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+const themeColor = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+
 module.exports = {
   content: [
     "./app/**/*.{js,jsx}",
@@ -8,21 +10,25 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Theme colors come from CSS variables (see app/globals.css) so each
+        // program can have its own palette. navy = primary, orange = accent,
+        // gold = highlight, accent-ink = readable accent text on white.
         navy: {
-          DEFAULT: "#003366",
-          light: "#004488",
-          dark: "#002244",
+          DEFAULT: themeColor("navy"),
+          light: themeColor("navy-light"),
+          dark: themeColor("navy-dark"),
         },
         gold: {
-          DEFAULT: "#FFCC00",
-          light: "#FFD633",
-          dark: "#E6B800",
+          DEFAULT: themeColor("gold"),
+          light: themeColor("gold-light"),
+          dark: themeColor("gold-dark"),
         },
         orange: {
-          DEFAULT: "#FF7A1F",
-          light: "#FF9147",
-          dark: "#E56200",
+          DEFAULT: themeColor("orange"),
+          light: themeColor("orange-light"),
+          dark: themeColor("orange-dark"),
         },
+        "accent-ink": themeColor("accent-ink"),
         background: "#F8FAFC",
         foreground: "#0F172A",
       },

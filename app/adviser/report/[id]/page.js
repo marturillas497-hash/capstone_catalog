@@ -37,6 +37,14 @@ export default async function AdviserReportPage({ params }) {
   const matches = report.results_json ?? [];
   const advisory = parseAdvisory(report.ai_recommendations);
 
+  // Only the BSIS advice pairs the third title with an AI feature.
+  const { data: reportProgram } = await supabase
+    .from("programs")
+    .select("code")
+    .eq("id", report.program_id)
+    .single();
+  const showAiBadge = reportProgram?.code === "BSIS";
+
   return (
     <div className="min-h-screen bg-background md:flex">
       <Navbar role={profile.role} fullName={profile.full_name} />
@@ -141,7 +149,7 @@ export default async function AdviserReportPage({ params }) {
                             <span className="text-xs font-medium text-slate-400 mt-0.5 min-w-[16px] shrink-0">{i + 1}</span>
                             <div>
                               <p className="text-sm text-slate-700 leading-snug">{title}</p>
-                              {i === 2 && (
+                              {showAiBadge && i === 2 && (
                                 <span className="inline-flex items-center gap-1 mt-1.5 text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
                                   includes AI integration
                                 </span>

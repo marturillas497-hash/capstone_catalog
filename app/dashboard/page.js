@@ -99,7 +99,7 @@ export default async function DashboardPage() {
           <DonutCard
             title="Daily scan limit"
             segments={[
-              { label: "Used today", value: used, color: "#003366" },
+              { label: "Used today", value: used, color: "rgb(var(--navy))" },
               { label: "Remaining", value: left, color: "#E2E8F0" },
             ]}
             centerValue={`${used}/${DAILY_SCAN_LIMIT}`}

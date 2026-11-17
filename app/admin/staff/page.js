@@ -198,7 +198,7 @@ export default function StaffPage() {
           subtitle="Accounts for library staff who add abstracts"
           icon={UserPlus}
           badge={
-            <span className="bg-orange/10 text-[#B84E00] text-[13px] font-bold rounded-full px-2.5 py-0.5">
+            <span className="bg-orange/10 text-accent-ink text-[13px] font-bold rounded-full px-2.5 py-0.5">
               {total}
             </span>
           }

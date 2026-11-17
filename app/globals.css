@@ -20,6 +20,94 @@ body {
   font-weight: 600;
 }
 
+/*
+  Program themes. The Tailwind colors navy, orange and gold read these variables
+  (see tailwind.config.js), so the whole interface changes with one attribute:
+  <html data-program="BSC">. In this system, navy is the primary color, orange is
+  the accent, and gold is the highlight. The names are kept so no class had to be
+  renamed. accent-ink is the readable text version of the accent. BSIS and signed
+  out pages use the MIST default in :root.
+*/
+@layer base {
+  :root {
+    --navy: 0 51 102;
+    --navy-light: 0 68 136;
+    --navy-dark: 0 34 68;
+    --gold: 255 204 0;
+    --gold-light: 255 214 51;
+    --gold-dark: 230 184 0;
+    --orange: 255 122 31;
+    --orange-light: 255 145 71;
+    --orange-dark: 229 98 0;
+    --accent-ink: 184 78 0;
+  }
+
+  [data-program="BSC"] {
+    --navy: 142 27 43;
+    --navy-light: 168 42 60;
+    --navy-dark: 100 16 28;
+    --gold: 255 204 0;
+    --gold-light: 255 214 51;
+    --gold-dark: 230 184 0;
+    --orange: 229 56 59;
+    --orange-light: 240 87 90;
+    --orange-dark: 179 38 42;
+    --accent-ink: 166 30 34;
+  }
+
+  [data-program="BSA"] {
+    --navy: 27 97 64;
+    --navy-light: 38 121 79;
+    --navy-dark: 18 69 45;
+    --gold: 255 204 0;
+    --gold-light: 255 214 51;
+    --gold-dark: 230 184 0;
+    --orange: 61 174 111;
+    --orange-light: 92 195 137;
+    --orange-dark: 35 129 79;
+    --accent-ink: 26 110 65;
+  }
+
+  [data-program="BSM"] {
+    --navy: 173 20 87;
+    --navy-light: 194 24 91;
+    --navy-dark: 136 14 79;
+    --gold: 255 204 0;
+    --gold-light: 255 214 51;
+    --gold-dark: 230 184 0;
+    --orange: 236 72 153;
+    --orange-light: 244 114 182;
+    --orange-dark: 192 38 122;
+    --accent-ink: 163 23 90;
+  }
+
+  [data-program="BPA"] {
+    --navy: 26 71 194;
+    --navy-light: 53 99 222;
+    --navy-dark: 27 54 128;
+    --gold: 255 204 0;
+    --gold-light: 255 214 51;
+    --gold-dark: 230 184 0;
+    --orange: 14 165 233;
+    --orange-light: 56 189 248;
+    --orange-dark: 3 105 161;
+    --accent-ink: 3 105 161;
+  }
+
+  [data-program="BSE"] {
+    --navy: 122 89 0;
+    --navy-light: 149 112 0;
+    --navy-dark: 90 65 0;
+    --gold: 255 204 0;
+    --gold-light: 255 214 51;
+    --gold-dark: 230 184 0;
+    --orange: 250 204 21;
+    --orange-light: 253 224 71;
+    --orange-dark: 148 108 0;
+    --accent-ink: 138 100 0;
+  }
+}
+
 @layer base {
   /*
     Page transition: every page's content area fades in and rises slightly on

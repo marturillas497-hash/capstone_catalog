@@ -212,7 +212,7 @@ export default function UsersPage() {
           subtitle="Suspend, unsuspend, or send a password reset link to any account"
           icon={Users}
           badge={
-            <span className="bg-orange/10 text-[#B84E00] text-[13px] font-bold rounded-full px-2.5 py-0.5">
+            <span className="bg-orange/10 text-accent-ink text-[13px] font-bold rounded-full px-2.5 py-0.5">
               {total}
             </span>
           }

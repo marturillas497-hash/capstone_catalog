@@ -50,7 +50,7 @@ function Crumbs({ items }) {
       {items.map((item, i) => (
         <span key={item}>
           {i > 0 && <span className="text-slate-300 mx-1.5">/</span>}
-          <span className={i === items.length - 1 ? "text-[#B84E00]" : ""}>{item}</span>
+          <span className={i === items.length - 1 ? "text-accent-ink" : ""}>{item}</span>
         </span>
       ))}
     </p>

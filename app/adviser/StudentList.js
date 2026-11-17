@@ -161,7 +161,7 @@ export default function StudentList({ students }) {
                     <td className="px-5 py-3.5">
                       <Link
                         href={`/adviser/students/${student.profile_id}`}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-navy hover:text-orange transition-colors"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-navy hover:text-accent-ink transition-colors"
                       >
                         View
                         <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />

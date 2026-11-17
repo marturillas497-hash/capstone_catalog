@@ -197,7 +197,7 @@ export default function ProfileClient({ profile }) {
               </div>
               <a
                 href="/adviser"
-                className="inline-block mt-2 text-xs font-medium text-orange hover:underline"
+                className="inline-block mt-2 text-xs font-medium text-accent-ink hover:underline"
               >
                 View my students →
               </a>
